@@ -7,11 +7,19 @@ struct FiliusPadApp: App {
     @State private var autosaveTask: Task<Void, Never>?
     @State private var hasAttemptedLaunchRestore = false
 
+    private let launchConfiguration: PersistenceLaunchConfiguration
     private let projectStore: TopologyProjectStore
     private let autosaveDebounceNanoseconds: UInt64 = 500_000_000
 
-    init(projectStore: TopologyProjectStore = TopologyProjectStore(fileURL: Self.defaultAutosaveFileURL)) {
-        self.projectStore = projectStore
+    init(projectStore: TopologyProjectStore? = nil) {
+        let launchConfiguration = Self.resolvePersistenceLaunchConfiguration()
+        self.launchConfiguration = launchConfiguration
+
+        if let projectStore {
+            self.projectStore = projectStore
+        } else {
+            self.projectStore = TopologyProjectStore(fileURL: launchConfiguration.autosaveFileURL)
+        }
     }
 
     var body: some Scene {
@@ -38,6 +46,8 @@ struct FiliusPadApp: App {
 
     @MainActor
     private func restoreAutosaveSnapshotOnLaunch() async {
+        prepareLaunchAutosaveFixtureIfNeeded()
+
         do {
             var restoredState = try await loadStateFromStore()
             restoredState.recordPersistenceLoad()
@@ -156,6 +166,49 @@ struct FiliusPadApp: App {
         )
 
         return String(redacted.prefix(280))
+    }
+
+    private func prepareLaunchAutosaveFixtureIfNeeded() {
+        guard launchConfiguration.shouldInjectMalformedAutosave else {
+            return
+        }
+
+        do {
+            let parentDirectory = projectStore.fileURL.deletingLastPathComponent()
+            try FileManager.default.createDirectory(
+                at: parentDirectory,
+                withIntermediateDirectories: true
+            )
+            try Data("{malformed-autosave".utf8).write(to: projectStore.fileURL, options: .atomic)
+        } catch {
+            editorState.recordPersistenceFailure(
+                operation: .save,
+                code: .fileWriteFailed,
+                detail: "Failed to seed malformed autosave fixture"
+            )
+        }
+    }
+
+    private static func resolvePersistenceLaunchConfiguration() -> PersistenceLaunchConfiguration {
+        let processInfo = ProcessInfo.processInfo
+        let environment = processInfo.environment
+        let arguments = Set(processInfo.arguments)
+
+        let autosaveFileURL: URL = {
+            if let overridePath = environment["FILIUSPAD_AUTOSAVE_FILE"]?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !overridePath.isEmpty {
+                return URL(fileURLWithPath: overridePath)
+            }
+
+            return defaultAutosaveFileURL
+        }()
+
+        let shouldInjectMalformedAutosave = arguments.contains("-inject-malformed-autosave")
+
+        return PersistenceLaunchConfiguration(
+            autosaveFileURL: autosaveFileURL,
+            shouldInjectMalformedAutosave: shouldInjectMalformedAutosave
+        )
     }
 
     private static var defaultAutosaveFileURL: URL {
