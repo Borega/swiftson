@@ -198,6 +198,9 @@ check_tests_contract_tokens() {
   require_token "$DIAGNOSTICS_TEST_FILE" "testTraceSuccessPublishesPathAwareRuntimeDiagnostics" "trace diagnostics coverage" 5 || return $?
   require_token "$DIAGNOSTICS_TEST_FILE" "testUnsupportedRuntimeCommandUsesExplicitAttributableFault" "unsupported diagnostics coverage" 5 || return $?
   require_token "$PING_UI_TEST_FILE" "runtime.device.sheet" "runtime UI workflow contract" 5 || return $?
+  require_token "$INTEGRATED_UI_TEST_FILE" "testTwentyNodeRuntimeDepthTraceContractsRemainDeterministic" "20-node runtime-depth integrated UI contract" 5 || return $?
+  require_token "$INTEGRATED_UI_TEST_FILE" "[M002/S03/T03 tests]" "phase-attributed 20-node runtime-depth assertion tag" 5 || return $?
+  require_token "$INTEGRATED_UI_TEST_FILE" "hops=19" "20-node deterministic hop-depth assertion" 5 || return $?
 }
 
 run_selected_contract_phases() {
