@@ -4,6 +4,16 @@ import Foundation
 enum TopologyEditorReducer {
     private static let maxRuntimeConsoleEntriesPerDevice = 60
 
+    private enum PingCommandParseResult {
+        case success(String)
+        case failure(String)
+    }
+
+    private enum PortResolutionResult {
+        case success(UUID)
+        case failure(TopologyValidationErrorCode)
+    }
+
     static func reduce(state: inout TopologyEditorState, action: TopologyEditorAction) {
         state.transitionCount += 1
         state.lastAction = action.debugName
@@ -585,7 +595,7 @@ enum TopologyEditorReducer {
         return trimmed
     }
 
-    private static func parsePingCommand(_ command: String) -> Result<String, String> {
+    private static func parsePingCommand(_ command: String) -> PingCommandParseResult {
         let parts = command.split(whereSeparator: { $0.isWhitespace }).map(String.init)
 
         guard parts.count == 2, parts[0].lowercased() == "ping" else {
@@ -691,7 +701,7 @@ enum TopologyEditorReducer {
         on node: TopologyNode,
         requestedPortID: UUID?,
         graph: TopologyGraph
-    ) -> Result<UUID, TopologyValidationErrorCode> {
+    ) -> PortResolutionResult {
         guard !node.ports.isEmpty else {
             return .failure(.noFreePort)
         }

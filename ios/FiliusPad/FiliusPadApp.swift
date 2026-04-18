@@ -220,3 +220,8 @@ struct FiliusPadApp: App {
             .appendingPathComponent("autosave.topology.json", isDirectory: false)
     }
 }
+
+private struct PersistenceLaunchConfiguration {
+    let autosaveFileURL: URL
+    let shouldInjectMalformedAutosave: Bool
+}
