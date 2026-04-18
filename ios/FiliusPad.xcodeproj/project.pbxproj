@@ -1,0 +1,513 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A11100000000000000000001 /* FiliusPadApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21200000000000000000001 /* FiliusPadApp.swift */; };
+		A11200000000000000000001 /* TopologyNode.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21200000000000000000002 /* TopologyNode.swift */; };
+		A11300000000000000000001 /* TopologyLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21200000000000000000003 /* TopologyLink.swift */; };
+		A11400000000000000000001 /* TopologyGraph.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21200000000000000000004 /* TopologyGraph.swift */; };
+		A11500000000000000000001 /* TopologyEditorState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21200000000000000000005 /* TopologyEditorState.swift */; };
+		A11600000000000000000001 /* TopologyEditorReducerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21200000000000000000006 /* TopologyEditorReducerTests.swift */; };
+		A11700000000000000000001 /* FiliusPadUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21200000000000000000007 /* FiliusPadUITests.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		A71100000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A81100000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A51100000000000000000001;
+			remoteInfo = FiliusPad;
+		};
+		A71200000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A81100000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A51100000000000000000001;
+			remoteInfo = FiliusPad;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		A21200000000000000000001 /* FiliusPadApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FiliusPadApp.swift; sourceTree = "<group>"; };
+		A21200000000000000000002 /* TopologyNode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopologyNode.swift; sourceTree = "<group>"; };
+		A21200000000000000000003 /* TopologyLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopologyLink.swift; sourceTree = "<group>"; };
+		A21200000000000000000004 /* TopologyGraph.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopologyGraph.swift; sourceTree = "<group>"; };
+		A21200000000000000000005 /* TopologyEditorState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopologyEditorState.swift; sourceTree = "<group>"; };
+		A21200000000000000000006 /* TopologyEditorReducerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopologyEditorReducerTests.swift; sourceTree = "<group>"; };
+		A21200000000000000000007 /* FiliusPadUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FiliusPadUITests.swift; sourceTree = "<group>"; };
+		A21300000000000000000001 /* FiliusPad.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FiliusPad.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A21300000000000000000002 /* FiliusPadTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FiliusPadTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A21300000000000000000003 /* FiliusPadUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FiliusPadUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A41200000000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A41500000000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A41800000000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A31100000000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				A31200000000000000000001 /* FiliusPad */,
+				A31700000000000000000001 /* FiliusPadTests */,
+				A31800000000000000000001 /* FiliusPadUITests */,
+				A31900000000000000000001 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A31200000000000000000001 /* FiliusPad */ = {
+			isa = PBXGroup;
+			path = FiliusPad;
+			sourceTree = "<group>";
+			children = (
+				A21200000000000000000001 /* FiliusPadApp.swift */,
+				A31400000000000000000001 /* TopologyEditor */,
+			);
+		};
+		A31400000000000000000001 /* TopologyEditor */ = {
+			isa = PBXGroup;
+			path = TopologyEditor;
+			sourceTree = "<group>";
+			children = (
+				A31500000000000000000001 /* Model */,
+				A31600000000000000000001 /* State */,
+			);
+		};
+		A31500000000000000000001 /* Model */ = {
+			isa = PBXGroup;
+			path = Model;
+			sourceTree = "<group>";
+			children = (
+				A21200000000000000000002 /* TopologyNode.swift */,
+				A21200000000000000000003 /* TopologyLink.swift */,
+				A21200000000000000000004 /* TopologyGraph.swift */,
+			);
+		};
+		A31600000000000000000001 /* State */ = {
+			isa = PBXGroup;
+			path = State;
+			sourceTree = "<group>";
+			children = (
+				A21200000000000000000005 /* TopologyEditorState.swift */,
+			);
+		};
+		A31700000000000000000001 /* FiliusPadTests */ = {
+			isa = PBXGroup;
+			path = FiliusPadTests;
+			sourceTree = "<group>";
+			children = (
+				A21200000000000000000006 /* TopologyEditorReducerTests.swift */,
+			);
+		};
+		A31800000000000000000001 /* FiliusPadUITests */ = {
+			isa = PBXGroup;
+			path = FiliusPadUITests;
+			sourceTree = "<group>";
+			children = (
+				A21200000000000000000007 /* FiliusPadUITests.swift */,
+			);
+		};
+		A31900000000000000000001 /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+			children = (
+				A21300000000000000000001 /* FiliusPad.app */,
+				A21300000000000000000002 /* FiliusPadTests.xctest */,
+				A21300000000000000000003 /* FiliusPadUITests.xctest */,
+			);
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A51100000000000000000001 /* FiliusPad */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A61200000000000000000001 /* Build configuration list for PBXNativeTarget "FiliusPad" */;
+			buildPhases = (
+				A41100000000000000000001 /* Sources */,
+				A41200000000000000000001 /* Frameworks */,
+				A41300000000000000000001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = FiliusPad;
+			productName = FiliusPad;
+			productReference = A21300000000000000000001 /* FiliusPad.app */;
+			productType = "com.apple.product-type.application";
+		};
+		A51200000000000000000001 /* FiliusPadTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A61300000000000000000001 /* Build configuration list for PBXNativeTarget "FiliusPadTests" */;
+			buildPhases = (
+				A41400000000000000000001 /* Sources */,
+				A41500000000000000000001 /* Frameworks */,
+				A41600000000000000000001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A72100000000000000000001 /* PBXTargetDependency */,
+			);
+			name = FiliusPadTests;
+			productName = FiliusPadTests;
+			productReference = A21300000000000000000002 /* FiliusPadTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		A51300000000000000000001 /* FiliusPadUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A61400000000000000000001 /* Build configuration list for PBXNativeTarget "FiliusPadUITests" */;
+			buildPhases = (
+				A41700000000000000000001 /* Sources */,
+				A41800000000000000000001 /* Frameworks */,
+				A41900000000000000000001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A72200000000000000000001 /* PBXTargetDependency */,
+			);
+			name = FiliusPadUITests;
+			productName = FiliusPadUITests;
+			productReference = A21300000000000000000003 /* FiliusPadUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A81100000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					A51100000000000000000001 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+					A51200000000000000000001 = {
+						CreatedOnToolsVersion = 16.0;
+						TestTargetID = A51100000000000000000001;
+					};
+					A51300000000000000000001 = {
+						CreatedOnToolsVersion = 16.0;
+						TestTargetID = A51100000000000000000001;
+					};
+				};
+			};
+			buildConfigurationList = A61100000000000000000001 /* Build configuration list for PBXProject "FiliusPad" */;
+			compatibilityVersion = "Xcode 15.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = A31100000000000000000001;
+			productRefGroup = A31900000000000000000001 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A51100000000000000000001 /* FiliusPad */,
+				A51200000000000000000001 /* FiliusPadTests */,
+				A51300000000000000000001 /* FiliusPadUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A41300000000000000000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A41600000000000000000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A41900000000000000000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A41100000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A11100000000000000000001 /* FiliusPadApp.swift in Sources */,
+				A11200000000000000000001 /* TopologyNode.swift in Sources */,
+				A11300000000000000000001 /* TopologyLink.swift in Sources */,
+				A11400000000000000000001 /* TopologyGraph.swift in Sources */,
+				A11500000000000000000001 /* TopologyEditorState.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A41400000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A11600000000000000000001 /* TopologyEditorReducerTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A41700000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A11700000000000000000001 /* FiliusPadUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A72100000000000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A51100000000000000000001 /* FiliusPad */;
+			targetProxy = A71100000000000000000001 /* PBXContainerItemProxy */;
+		};
+		A72200000000000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A51100000000000000000001 /* FiliusPad */;
+			targetProxy = A71200000000000000000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		A62100000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 2;
+			};
+			name = Debug;
+		};
+		A62200000000000000000001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 2;
+			};
+			name = Release;
+		};
+		A62300000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.filius.pad;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 2;
+			};
+			name = Debug;
+		};
+		A62400000000000000000001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.filius.pad;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 2;
+			};
+			name = Release;
+		};
+		A62500000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.filius.pad.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 2;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FiliusPad.app/FiliusPad";
+			};
+			name = Debug;
+		};
+		A62600000000000000000001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.filius.pad.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 2;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FiliusPad.app/FiliusPad";
+			};
+			name = Release;
+		};
+		A62700000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.filius.pad.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 2;
+				TEST_TARGET_NAME = FiliusPad;
+			};
+			name = Debug;
+		};
+		A62800000000000000000001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.filius.pad.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 2;
+				TEST_TARGET_NAME = FiliusPad;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A61100000000000000000001 /* Build configuration list for PBXProject "FiliusPad" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A62100000000000000000001 /* Debug */,
+				A62200000000000000000001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A61200000000000000000001 /* Build configuration list for PBXNativeTarget "FiliusPad" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A62300000000000000000001 /* Debug */,
+				A62400000000000000000001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A61300000000000000000001 /* Build configuration list for PBXNativeTarget "FiliusPadTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A62500000000000000000001 /* Debug */,
+				A62600000000000000000001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A61400000000000000000001 /* Build configuration list for PBXNativeTarget "FiliusPadUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A62700000000000000000001 /* Debug */,
+				A62800000000000000000001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = A81100000000000000000001 /* Project object */;
+}
