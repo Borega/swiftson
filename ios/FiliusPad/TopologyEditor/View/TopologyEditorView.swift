@@ -43,6 +43,18 @@ struct TopologyEditorView: View {
         .sheet(item: runtimeDeviceSheetBinding) { item in
             runtimeDeviceSheet(for: item.id)
         }
+        .alert(
+            "Persistence error",
+            isPresented: persistenceAlertPresented,
+            presenting: state.lastPersistenceError
+        ) { _ in
+            Button("Dismiss") {
+                send(.dismissPersistenceError)
+            }
+        } message: { failure in
+            Text(persistenceAlertMessage(for: failure))
+                .accessibilityIdentifier("persistence.error.alert")
+        }
         .onAppear {
             handleSimulationPhaseChange(state.simulationPhase)
         }
@@ -75,6 +87,19 @@ struct TopologyEditorView: View {
                 }
 
                 send(.openRuntimeDevice(nodeID: newValue.id))
+            }
+        )
+    }
+
+    private var persistenceAlertPresented: Binding<Bool> {
+        Binding(
+            get: {
+                state.lastPersistenceError != nil
+            },
+            set: { isPresented in
+                if !isPresented {
+                    send(.dismissPersistenceError)
+                }
             }
         )
     }
@@ -248,6 +273,10 @@ struct TopologyEditorView: View {
 
     private func handleCanvasMagnify(_ scaleDelta: CGFloat, anchor: CGPoint) {
         send(.zoomCanvas(scaleDelta: scaleDelta, anchor: anchor))
+    }
+
+    private func persistenceAlertMessage(for failure: TopologyPersistenceFailure) -> String {
+        "Operation: \(failure.operation.rawValue)\nCode: \(failure.code.rawValue)\nDetail: \(failure.detail)"
     }
 
     private func send(_ action: TopologyEditorAction) {

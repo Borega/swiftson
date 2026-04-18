@@ -27,6 +27,7 @@ enum TopologyEditorReducer {
             state.selectedNodeIDs = [nodeID]
             state.activeTool = .select
             state.pendingConnection = nil
+            advancePersistenceRevision(state: &state)
 
         case let .selectSingleNode(nodeID):
             guard let nodeID else {
@@ -147,6 +148,7 @@ enum TopologyEditorReducer {
                 state.selectedNodeIDs = [sourceNode.id, targetNode.id]
                 state.pendingConnection = nil
                 state.activeTool = .select
+                advancePersistenceRevision(state: &state)
 
             case let .failure(validationError):
                 state.lastValidationError = validationError
@@ -316,6 +318,7 @@ enum TopologyEditorReducer {
                 subnetMask: normalizedSubnetMask
             )
             state.lastRuntimeFault = nil
+            advancePersistenceRevision(state: &state)
             recordRuntimeEvent(
                 state: &state,
                 code: .runtimeDeviceIPSaved,
@@ -475,6 +478,7 @@ enum TopologyEditorReducer {
             for nodeID in state.selectedNodeIDs {
                 state.graph.moveNode(withID: nodeID, delta: delta)
             }
+            advancePersistenceRevision(state: &state)
 
         case let .panCanvas(delta):
             guard let delta, delta.isFinite else {
@@ -483,6 +487,7 @@ enum TopologyEditorReducer {
             }
 
             state.viewport = state.viewport.panned(by: delta)
+            advancePersistenceRevision(state: &state)
 
         case let .zoomCanvas(scaleDelta, anchor):
             guard let scaleDelta, scaleDelta.isFiniteNumber, scaleDelta > 0 else {
@@ -496,7 +501,16 @@ enum TopologyEditorReducer {
             }
 
             state.viewport = state.viewport.zoomed(by: scaleDelta, anchor: anchor)
+            advancePersistenceRevision(state: &state)
+
+        case .dismissPersistenceError:
+            state.dismissPersistenceError()
         }
+    }
+
+    private static func advancePersistenceRevision(state: inout TopologyEditorState) {
+        let (nextRevision, overflowed) = state.persistenceRevision.addingReportingOverflow(1)
+        state.persistenceRevision = overflowed ? UInt64.max : nextRevision
     }
 
     private static func recordRuntimeEvent(
@@ -769,6 +783,8 @@ private extension TopologyEditorAction {
             return "panCanvas"
         case .zoomCanvas:
             return "zoomCanvas"
+        case .dismissPersistenceError:
+            return "dismissPersistenceError"
         }
     }
 }

@@ -64,6 +64,13 @@ struct TopologyRuntimeDeviceConfiguration: Equatable {
     let subnetMask: String
 }
 
+struct TopologyPersistenceFailure: Equatable {
+    let operation: TopologyProjectPersistenceOperation
+    let code: TopologyProjectPersistenceErrorCode
+    let detail: String
+    let occurredAt: Date
+}
+
 struct TopologyEditorState: Equatable {
     var graph = TopologyGraph()
     var selectedNodeIDs: Set<UUID> = []
@@ -79,10 +86,45 @@ struct TopologyEditorState: Equatable {
     var lastPingEvent: TopologyRuntimeEvent?
     var lastPingFault: TopologyRuntimeFault?
     var viewport = ViewportTransform.identity
+    var persistenceRevision: UInt64 = 0
+    var lastPersistedRevision: UInt64 = 0
+    var lastPersistenceSaveAt: Date?
+    var lastPersistenceLoadAt: Date?
+    var lastPersistenceError: TopologyPersistenceFailure?
     var lastValidationError: TopologyValidationErrorCode?
     var lastAction: String?
     var lastActionAt: Date?
     var transitionCount = 0
+
+    mutating func recordPersistenceLoad(at date: Date = Date()) {
+        lastPersistenceLoadAt = date
+        lastPersistedRevision = persistenceRevision
+        lastPersistenceError = nil
+    }
+
+    mutating func recordPersistenceSave(revision: UInt64, at date: Date = Date()) {
+        lastPersistedRevision = max(lastPersistedRevision, revision)
+        lastPersistenceSaveAt = date
+        lastPersistenceError = nil
+    }
+
+    mutating func recordPersistenceFailure(
+        operation: TopologyProjectPersistenceOperation,
+        code: TopologyProjectPersistenceErrorCode,
+        detail: String,
+        occurredAt: Date = Date()
+    ) {
+        lastPersistenceError = TopologyPersistenceFailure(
+            operation: operation,
+            code: code,
+            detail: detail,
+            occurredAt: occurredAt
+        )
+    }
+
+    mutating func dismissPersistenceError() {
+        lastPersistenceError = nil
+    }
 }
 
 enum TopologyEditorAction: Equatable {
@@ -104,4 +146,5 @@ enum TopologyEditorAction: Equatable {
     case moveSelectedNodes(delta: CGSize?)
     case panCanvas(delta: CGSize?)
     case zoomCanvas(scaleDelta: CGFloat?, anchor: CGPoint?)
+    case dismissPersistenceError
 }

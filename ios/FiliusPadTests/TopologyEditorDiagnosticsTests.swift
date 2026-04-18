@@ -220,6 +220,38 @@ final class TopologyEditorDiagnosticsTests: XCTestCase {
         XCTAssertEqual(state.lastRuntimeEvent?.code, .pingSucceeded)
     }
 
+    func testPersistenceFailureMetadataIsInspectableAndDismissible() {
+        var state = TopologyEditorState()
+        state.recordPersistenceFailure(
+            operation: .load,
+            code: .malformedPayload,
+            detail: "Decoded snapshot failed validation"
+        )
+
+        XCTAssertEqual(state.lastPersistenceError?.operation, .load)
+        XCTAssertEqual(state.lastPersistenceError?.code, .malformedPayload)
+        XCTAssertEqual(state.lastPersistenceError?.detail, "Decoded snapshot failed validation")
+        XCTAssertNotNil(state.lastPersistenceError?.occurredAt)
+
+        TopologyEditorReducer.reduce(state: &state, action: .dismissPersistenceError)
+        XCTAssertNil(state.lastPersistenceError)
+    }
+
+    func testPersistenceSaveAndLoadMetadataRemainInspectable() {
+        var state = TopologyEditorState()
+        state.persistenceRevision = 7
+
+        state.recordPersistenceSave(revision: 7)
+        XCTAssertEqual(state.lastPersistedRevision, 7)
+        XCTAssertNotNil(state.lastPersistenceSaveAt)
+        XCTAssertNil(state.lastPersistenceError)
+
+        state.recordPersistenceLoad()
+        XCTAssertNotNil(state.lastPersistenceLoadAt)
+        XCTAssertEqual(state.lastPersistedRevision, 7)
+        XCTAssertNil(state.lastPersistenceError)
+    }
+
     // MARK: - Helpers
 
     @discardableResult

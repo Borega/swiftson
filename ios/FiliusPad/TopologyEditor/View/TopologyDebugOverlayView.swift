@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 
 struct TopologyDebugOverlayView: View {
@@ -53,6 +54,18 @@ struct TopologyDebugOverlayView: View {
             Text(String(format: "Zoom: %.2f", state.viewport.scale))
                 .accessibilityIdentifier("debug.zoomScale")
 
+            Text("Persistence revision: \(state.persistenceRevision)")
+                .accessibilityIdentifier("debug.persistenceRevision")
+
+            Text("Last persistence save: \(debugDate(state.lastPersistenceSaveAt))")
+                .accessibilityIdentifier("debug.lastPersistenceSaveAt")
+
+            Text("Last persistence load: \(debugDate(state.lastPersistenceLoadAt))")
+                .accessibilityIdentifier("debug.lastPersistenceLoadAt")
+
+            Text("Last persistence error: \(debugPersistenceError(state.lastPersistenceError))")
+                .accessibilityIdentifier("debug.lastPersistenceError")
+
             Text("Last error: \(state.lastValidationError?.rawValue ?? "none")")
                 .accessibilityIdentifier("debug.lastValidationError")
 
@@ -107,5 +120,22 @@ struct TopologyDebugOverlayView: View {
         }
 
         return "\(fault.category.rawValue):\(fault.code) [\(fault.message)]"
+    }
+
+    private func debugPersistenceError(_ failure: TopologyPersistenceFailure?) -> String {
+        guard let failure else {
+            return "none"
+        }
+
+        let timestamp = ISO8601DateFormatter().string(from: failure.occurredAt)
+        return "\(failure.operation.rawValue):\(failure.code.rawValue) [\(failure.detail)] @\(timestamp)"
+    }
+
+    private func debugDate(_ date: Date?) -> String {
+        guard let date else {
+            return "none"
+        }
+
+        return ISO8601DateFormatter().string(from: date)
     }
 }

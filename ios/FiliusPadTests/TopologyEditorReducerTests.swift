@@ -539,6 +539,68 @@ final class TopologyEditorReducerTests: XCTestCase {
         XCTAssertNil(state.lastPingFault)
     }
 
+    func testPersistenceRevisionAdvancesOnlyForDurableMutations() {
+        var state = TopologyEditorState()
+        let nodeID = addNode(kind: .pc, at: CGPoint(x: 20, y: 20), to: &state)
+
+        XCTAssertEqual(state.persistenceRevision, 1)
+
+        TopologyEditorReducer.reduce(state: &state, action: .setActiveTool(mode: .connect))
+        XCTAssertEqual(state.persistenceRevision, 1)
+
+        TopologyEditorReducer.reduce(state: &state, action: .selectSingleNode(nodeID: nodeID))
+        XCTAssertEqual(state.persistenceRevision, 1)
+
+        TopologyEditorReducer.reduce(state: &state, action: .panCanvas(delta: CGSize(width: 30, height: -10)))
+        XCTAssertEqual(state.persistenceRevision, 2)
+
+        TopologyEditorReducer.reduce(state: &state, action: .zoomCanvas(scaleDelta: 1.2, anchor: CGPoint(x: 0, y: 0)))
+        XCTAssertEqual(state.persistenceRevision, 3)
+
+        TopologyEditorReducer.reduce(
+            state: &state,
+            action: .moveSelectedNodes(delta: CGSize(width: 5, height: 5))
+        )
+        XCTAssertEqual(state.persistenceRevision, 4)
+    }
+
+    func testMalformedOrNoOpDurableActionsDoNotAdvancePersistenceRevision() {
+        var state = TopologyEditorState()
+        _ = addNode(kind: .pc, at: CGPoint(x: 10, y: 10), to: &state)
+        let startingRevision = state.persistenceRevision
+
+        TopologyEditorReducer.reduce(state: &state, action: .moveSelectedNodes(delta: .zero))
+        XCTAssertEqual(state.persistenceRevision, startingRevision)
+
+        TopologyEditorReducer.reduce(state: &state, action: .moveSelectedNodes(delta: nil))
+        XCTAssertEqual(state.persistenceRevision, startingRevision)
+
+        TopologyEditorReducer.reduce(
+            state: &state,
+            action: .panCanvas(delta: CGSize(width: .infinity, height: 1))
+        )
+        XCTAssertEqual(state.persistenceRevision, startingRevision)
+
+        TopologyEditorReducer.reduce(state: &state, action: .zoomCanvas(scaleDelta: 0, anchor: nil))
+        XCTAssertEqual(state.persistenceRevision, startingRevision)
+    }
+
+    func testDismissPersistenceErrorClearsFailureWithoutAdvancingRevision() {
+        var state = TopologyEditorState()
+        state.persistenceRevision = 9
+        state.recordPersistenceFailure(
+            operation: .save,
+            code: .fileWriteFailed,
+            detail: "sandbox write denied"
+        )
+
+        TopologyEditorReducer.reduce(state: &state, action: .dismissPersistenceError)
+
+        XCTAssertNil(state.lastPersistenceError)
+        XCTAssertEqual(state.persistenceRevision, 9)
+        XCTAssertEqual(state.lastAction, "dismissPersistenceError")
+    }
+
     // MARK: - Helpers
 
     @discardableResult
