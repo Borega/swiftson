@@ -603,9 +603,3 @@
 	};
 	rootObject = A81100000000000000000001 /* Project object */;
 }
-onName = Release;
-		};
-/* End XCConfigurationList section */
-	};
-	rootObject = A81100000000000000000001 /* Project object */;
-}
