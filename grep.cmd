@@ -1,13 +1,37 @@
 @echo off
-setlocal
+setlocal EnableExtensions
 
+set "pattern="
+set "file="
+
+:parse_flags
+if "%~1"=="" goto parsed
 if /I "%~1"=="-q" (
-    set "pattern=%~2"
-    set "file=%~3"
-) else (
-    set "pattern=%~1"
-    set "file=%~2"
+    shift
+    goto parse_flags
 )
+if /I "%~1"=="-F" (
+    shift
+    goto parse_flags
+)
+if /I "%~1"=="-Fq" (
+    shift
+    goto parse_flags
+)
+if /I "%~1"=="-qF" (
+    shift
+    goto parse_flags
+)
+if "%~1"=="--" (
+    shift
+)
+
+goto parsed
+
+:parsed
+set "pattern=%~1"
+shift
+set "file=%~1"
 
 if "%pattern%"=="" (
     echo grep.cmd: missing pattern>&2
