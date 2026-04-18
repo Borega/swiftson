@@ -17,6 +17,18 @@ struct TopologyDebugOverlayView: View {
             Text("Selected: \(state.selectedNodeIDs.count)")
                 .accessibilityIdentifier("debug.selectedNodeCount")
 
+            Text("Simulation phase: \(state.simulationPhase.rawValue)")
+                .accessibilityIdentifier("debug.simulationPhase")
+
+            Text("Simulation tick: \(state.simulationTick)")
+                .accessibilityIdentifier("debug.simulationTick")
+
+            Text("Last runtime event: \(debugRuntimeEvent(state.lastRuntimeEvent))")
+                .accessibilityIdentifier("debug.lastRuntimeEvent")
+
+            Text("Last runtime fault: \(debugRuntimeFault(state.lastRuntimeFault))")
+                .accessibilityIdentifier("debug.lastRuntimeFault")
+
             Text(
                 String(
                     format: "Camera: x=%.1f y=%.1f",
@@ -55,5 +67,25 @@ struct TopologyDebugOverlayView: View {
         case let .place(kind):
             return "place(\(kind.rawValue))"
         }
+    }
+
+    private func debugRuntimeEvent(_ event: TopologyRuntimeEvent?) -> String {
+        guard let event else {
+            return "none"
+        }
+
+        if let detail = event.detail, !detail.isEmpty {
+            return "\(event.code.rawValue) [\(detail)]"
+        }
+
+        return event.code.rawValue
+    }
+
+    private func debugRuntimeFault(_ fault: TopologyRuntimeFault?) -> String {
+        guard let fault else {
+            return "none"
+        }
+
+        return "\(fault.category.rawValue):\(fault.code) [\(fault.message)]"
     }
 }

@@ -5,8 +5,10 @@ struct TopologyEditorView: View {
 
     @State private var activeNodeDragTranslations: [UUID: CGSize] = [:]
     @State private var nodeDragInFlight = false
+    @State private var simulationTickTask: Task<Void, Never>?
 
     private let canvasWorldBounds = CGRect(x: -10_000, y: -10_000, width: 20_000, height: 20_000)
+    private let simulationTickIntervalNanoseconds: UInt64 = 200_000_000
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -15,7 +17,10 @@ struct TopologyEditorView: View {
 
             TopologyPaletteView(
                 activeTool: state.activeTool,
-                onSelectTool: setToolMode
+                simulationPhase: state.simulationPhase,
+                onSelectTool: setToolMode,
+                onStartSimulation: handleStartSimulation,
+                onStopSimulation: handleStopSimulation
             )
 
             TopologyCanvasView(
@@ -35,11 +40,75 @@ struct TopologyEditorView: View {
         }
         .padding(16)
         .background(Color(uiColor: .systemGroupedBackground))
+        .onAppear {
+            handleSimulationPhaseChange(state.simulationPhase)
+        }
+        .onChange(of: state.simulationPhase) { newPhase in
+            handleSimulationPhaseChange(newPhase)
+        }
+        .onDisappear {
+            stopSimulationTickLoop()
+            if state.simulationPhase == .running {
+                send(.stopSimulation)
+            }
+        }
     }
-
 
     private func setToolMode(_ mode: TopologyEditorToolMode) {
         send(.setActiveTool(mode: mode))
+    }
+
+    private func handleStartSimulation() {
+        send(.startSimulation)
+    }
+
+    private func handleStopSimulation() {
+        send(.stopSimulation)
+    }
+
+    private func handleSimulationPhaseChange(_ phase: TopologySimulationPhase) {
+        switch phase {
+        case .running:
+            startSimulationTickLoopIfNeeded()
+        case .stopped:
+            stopSimulationTickLoop()
+        }
+    }
+
+    private func startSimulationTickLoopIfNeeded() {
+        guard simulationTickTask == nil else {
+            return
+        }
+
+        simulationTickTask = Task {
+            await simulationTickLoop()
+        }
+    }
+
+    private func stopSimulationTickLoop() {
+        simulationTickTask?.cancel()
+        simulationTickTask = nil
+    }
+
+    private func simulationTickLoop() async {
+        while !Task.isCancelled {
+            do {
+                try await Task.sleep(nanoseconds: simulationTickIntervalNanoseconds)
+            } catch {
+                break
+            }
+
+            if Task.isCancelled {
+                break
+            }
+
+            await MainActor.run {
+                guard state.simulationPhase == .running else {
+                    return
+                }
+                send(.simulationTick(step: 1))
+            }
+        }
     }
 
     private func handleCanvasTap(_ screenPoint: CGPoint) {
@@ -126,5 +195,4 @@ struct TopologyEditorView: View {
         TopologyEditorReducer.reduce(state: &snapshot, action: action)
         state = snapshot
     }
-
 }
