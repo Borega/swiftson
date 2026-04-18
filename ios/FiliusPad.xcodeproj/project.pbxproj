@@ -26,6 +26,7 @@
 		A12700000000000000000001 /* TopologyEditorTouchFlowUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21200000000000000000017 /* TopologyEditorTouchFlowUITests.swift */; };
 		A12800000000000000000001 /* TopologySimulationRuntimeUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21200000000000000000018 /* TopologySimulationRuntimeUITests.swift */; };
 		A12900000000000000000001 /* TopologyRuntimeDeviceSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21200000000000000000019 /* TopologyRuntimeDeviceSheet.swift */; };
+		A13000000000000000000001 /* TopologyRuntimePingWorkflowUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21200000000000000000020 /* TopologyRuntimePingWorkflowUITests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -65,6 +66,7 @@
 		A21200000000000000000017 /* TopologyEditorTouchFlowUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopologyEditorTouchFlowUITests.swift; sourceTree = "<group>"; };
 		A21200000000000000000018 /* TopologySimulationRuntimeUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopologySimulationRuntimeUITests.swift; sourceTree = "<group>"; };
 		A21200000000000000000019 /* TopologyRuntimeDeviceSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopologyRuntimeDeviceSheet.swift; sourceTree = "<group>"; };
+		A21200000000000000000020 /* TopologyRuntimePingWorkflowUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopologyRuntimePingWorkflowUITests.swift; sourceTree = "<group>"; };
 		A21300000000000000000001 /* FiliusPad.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FiliusPad.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A21300000000000000000002 /* FiliusPadTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FiliusPadTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A21300000000000000000003 /* FiliusPadUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FiliusPadUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -175,6 +177,7 @@
 				A21200000000000000000007 /* FiliusPadUITests.swift */,
 				A21200000000000000000017 /* TopologyEditorTouchFlowUITests.swift */,
 				A21200000000000000000018 /* TopologySimulationRuntimeUITests.swift */,
+				A21200000000000000000020 /* TopologyRuntimePingWorkflowUITests.swift */,
 			);
 		};
 		A31900000000000000000001 /* Products */ = {
@@ -347,6 +350,7 @@
 				A11700000000000000000001 /* FiliusPadUITests.swift in Sources */,
 				A12700000000000000000001 /* TopologyEditorTouchFlowUITests.swift in Sources */,
 				A12800000000000000000001 /* TopologySimulationRuntimeUITests.swift in Sources */,
+				A13000000000000000000001 /* TopologyRuntimePingWorkflowUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
