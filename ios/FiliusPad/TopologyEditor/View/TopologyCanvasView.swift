@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct TopologyCanvasView: View {
     let state: TopologyEditorState
@@ -13,13 +14,17 @@ struct TopologyCanvasView: View {
     @State private var panTranslation: CGSize = .zero
     @State private var magnification: CGFloat = 1
 
-    private let nodeDiameter: CGFloat = 56
+    private let nodeDiameter: CGFloat = 68
 
     var body: some View {
         GeometryReader { proxy in
             ZStack {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .fill(Color(uiColor: .secondarySystemBackground))
+
+                TopologyCanvasParityBackground()
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .opacity(0.3)
 
                 linkLayer
                     .accessibilityIdentifier("canvas.linkLayer")
@@ -31,7 +36,7 @@ struct TopologyCanvasView: View {
             .contentShape(Rectangle())
             .overlay {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(Color.secondary.opacity(0.35), lineWidth: 1)
+                    .stroke(Color.black.opacity(0.28), lineWidth: 1)
             }
             .accessibilityIdentifier("canvas.surface")
             .simultaneousGesture(tapGesture)
@@ -48,7 +53,20 @@ struct TopologyCanvasView: View {
                         path.move(to: state.viewport.worldToScreen(projection.source))
                         path.addLine(to: state.viewport.worldToScreen(projection.target))
                     }
-                    .stroke(Color.secondary, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                    .stroke(
+                        Color.black.opacity(0.7),
+                        style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round)
+                    )
+                    .overlay {
+                        Path { path in
+                            path.move(to: state.viewport.worldToScreen(projection.source))
+                            path.addLine(to: state.viewport.worldToScreen(projection.target))
+                        }
+                        .stroke(
+                            Color.white.opacity(0.25),
+                            style: StrokeStyle(lineWidth: 1, lineCap: .round, lineJoin: .round)
+                        )
+                    }
                     .accessibilityIdentifier("canvas.link.\(link.id.uuidString)")
                 }
             }
@@ -69,15 +87,26 @@ struct TopologyCanvasView: View {
         let screenPosition = state.viewport.worldToScreen(node.position)
 
         return VStack(spacing: 4) {
-            Text(nodeLabel(for: node.kind))
-                .font(.caption.weight(.bold))
+            TopologyCanvasNodeIcon(
+                kind: node.kind,
+                isSelected: isSelected
+            )
+            .frame(width: nodeDiameter, height: nodeDiameter)
+            .overlay {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(Color.accentColor, lineWidth: 2)
+                }
+            }
 
             Text(node.kind.rawValue)
-                .font(.caption2)
+                .font(.caption2.weight(.semibold))
+                .lineLimit(1)
+                .padding(.horizontal, 4)
+                .padding(.vertical, 2)
+                .background(Color.white.opacity(0.65))
+                .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
         }
-        .foregroundStyle(isSelected ? Color.white : Color.primary)
-        .frame(width: nodeDiameter, height: nodeDiameter)
-        .background(nodeBackground(for: node.kind, isSelected: isSelected))
         .position(screenPosition)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityNodeLabel(for: node.kind))
@@ -134,17 +163,6 @@ struct TopologyCanvasView: View {
             }
     }
 
-    private func nodeLabel(for kind: TopologyNodeKind) -> String {
-        switch kind {
-        case .pc:
-            return "PC"
-        case .networkSwitch:
-            return "SW"
-        case .unsupported:
-            return "?"
-        }
-    }
-
     private func accessibilityNodeLabel(for kind: TopologyNodeKind) -> String {
         switch kind {
         case .pc:
@@ -155,19 +173,90 @@ struct TopologyCanvasView: View {
             return "Unsupported node"
         }
     }
+}
 
-    @ViewBuilder
-    private func nodeBackground(for kind: TopologyNodeKind, isSelected: Bool) -> some View {
+private struct TopologyCanvasParityBackground: View {
+    var body: some View {
+        if let image = TopologyParityAssetLoader.load(relativePath: "allgemein/entwurfshg.png") {
+            Image(uiImage: image)
+                .resizable(resizingMode: .tile)
+                .opacity(0.35)
+        } else {
+            Color(uiColor: .secondarySystemBackground)
+        }
+    }
+}
+
+private struct TopologyCanvasNodeIcon: View {
+    let kind: TopologyNodeKind
+    let isSelected: Bool
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(isSelected ? Color.accentColor.opacity(0.22) : Color.black.opacity(0.06))
+
+            if let image = TopologyParityAssetLoader.load(relativePath: iconRelativePath(for: kind)) {
+                Image(uiImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .padding(8)
+            } else {
+                Image(systemName: fallbackSystemImage(for: kind))
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .padding(14)
+                    .foregroundStyle(Color.primary)
+            }
+        }
+    }
+
+    private func iconRelativePath(for kind: TopologyNodeKind) -> String {
         switch kind {
         case .pc:
-            Circle()
-                .fill(isSelected ? Color.accentColor : Color.blue.opacity(0.25))
+            return "hardware/server.png"
         case .networkSwitch:
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(isSelected ? Color.accentColor : Color.green.opacity(0.25))
+            return "hardware/switch.png"
         case .unsupported:
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(isSelected ? Color.accentColor : Color.red.opacity(0.3))
+            return "hardware/cloud.png"
         }
+    }
+
+    private func fallbackSystemImage(for kind: TopologyNodeKind) -> String {
+        switch kind {
+        case .pc:
+            return "desktopcomputer"
+        case .networkSwitch:
+            return "switch.2"
+        case .unsupported:
+            return "questionmark.circle"
+        }
+    }
+}
+
+private enum TopologyParityAssetLoader {
+    static func load(relativePath: String) -> UIImage? {
+        guard !relativePath.isEmpty else {
+            return nil
+        }
+
+        let bundleRelativePath = "JavaParity/\(relativePath)"
+        if let directURL = Bundle.main.resourceURL?.appendingPathComponent(bundleRelativePath),
+           FileManager.default.fileExists(atPath: directURL.path),
+           let image = UIImage(contentsOfFile: directURL.path) {
+            return image
+        }
+
+        let nsPath = bundleRelativePath as NSString
+        let folder = nsPath.deletingPathExtension
+        let ext = nsPath.pathExtension
+
+        if !ext.isEmpty,
+           let fallbackURL = Bundle.main.url(forResource: folder, withExtension: ext),
+           let image = UIImage(contentsOfFile: fallbackURL.path) {
+            return image
+        }
+
+        return nil
     }
 }

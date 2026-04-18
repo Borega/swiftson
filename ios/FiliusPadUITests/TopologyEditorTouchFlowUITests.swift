@@ -18,6 +18,7 @@ final class TopologyEditorTouchFlowUITests: XCTestCase {
         _ = requireElement(app.staticTexts["debug.selectedNodeCount"], named: "debug.selectedNodeCount")
         _ = requireElement(app.staticTexts["debug.zoomScale"], named: "debug.zoomScale")
         _ = requireElement(app.staticTexts["debug.lastValidationError"], named: "debug.lastValidationError")
+        _ = requireElement(app.staticTexts["debug.lastInteractionMode"], named: "debug.lastInteractionMode")
         _ = requireElement(app.staticTexts["debug.linkCount"], named: "debug.linkCount")
     }
 
@@ -29,7 +30,9 @@ final class TopologyEditorTouchFlowUITests: XCTestCase {
 
         // Place first PC.
         tapButton("palette.tool.place.pc")
+        XCTAssertEqual(label(for: "debug.lastInteractionMode"), "Last interaction mode: paletteTap:place:pc")
         tapCanvas(at: CGVector(dx: 0.25, dy: 0.30))
+        XCTAssertEqual(label(for: "debug.lastInteractionMode"), "Last interaction mode: canvasTap:place:pc")
         assertDiagnosticEquals("debug.nodeCount", expected: "Nodes: 1")
         assertDiagnosticEquals("debug.selectedNodeCount", expected: "Selected: 1")
         assertDiagnosticEquals("debug.activeTool", expected: "Tool: select")
@@ -60,6 +63,7 @@ final class TopologyEditorTouchFlowUITests: XCTestCase {
 
         // Select and move one node.
         tapButton("palette.tool.select")
+        XCTAssertEqual(label(for: "debug.lastInteractionMode"), "Last interaction mode: paletteTap:select")
         tapCanvas(at: CGVector(dx: 0.45, dy: 0.60))
         assertDiagnosticEquals("debug.selectedNodeCount", expected: "Selected: 1")
         dragOnCanvas(from: CGVector(dx: 0.45, dy: 0.60), to: CGVector(dx: 0.68, dy: 0.48))

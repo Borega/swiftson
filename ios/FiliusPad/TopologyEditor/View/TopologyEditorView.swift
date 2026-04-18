@@ -15,12 +15,17 @@ struct TopologyEditorView: View {
             Text("FiliusPad")
                 .font(.title.bold())
 
+            if state.isRecoveryNoticeVisible {
+                recoveryNoticeBanner
+            }
+
             TopologyPaletteView(
                 activeTool: state.activeTool,
                 simulationPhase: state.simulationPhase,
                 onSelectTool: setToolMode,
                 onStartSimulation: handleStartSimulation,
-                onStopSimulation: handleStopSimulation
+                onStopSimulation: handleStopSimulation,
+                onPaletteDragPrepared: handlePaletteDragPrepared
             )
 
             TopologyCanvasView(
@@ -34,6 +39,9 @@ struct TopologyEditorView: View {
                 onMagnifyEnded: { }
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .dropDestination(for: String.self) { items, location in
+                handlePaletteDrop(items: items, location: location)
+            }
 
             TopologyDebugOverlayView(state: state)
                 .accessibilityIdentifier("debug.overlay")
@@ -104,6 +112,35 @@ struct TopologyEditorView: View {
         )
     }
 
+    private var recoveryNoticeBanner: some View {
+        HStack(spacing: 8) {
+            Image(systemName: state.lastRecoverySucceeded == false ? "exclamationmark.triangle.fill" : "arrow.clockwise.circle.fill")
+                .foregroundStyle(state.lastRecoverySucceeded == false ? Color.orange : Color.green)
+
+            Text(state.lastRecoveryMessage ?? "Recovered autosave state")
+                .font(.subheadline.weight(.semibold))
+                .lineLimit(2)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Button("Dismiss") {
+                send(.dismissRecoveryNotice)
+            }
+            .buttonStyle(.borderless)
+            .accessibilityIdentifier("recovery.notice.dismiss")
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color(uiColor: .secondarySystemBackground))
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(state.lastRecoverySucceeded == false ? Color.orange.opacity(0.5) : Color.green.opacity(0.45), lineWidth: 1)
+        }
+        .accessibilityIdentifier("recovery.notice.banner")
+    }
+
     @ViewBuilder
     private func runtimeDeviceSheet(for nodeID: UUID) -> some View {
         let node = state.graph.node(withID: nodeID)
@@ -128,6 +165,15 @@ struct TopologyEditorView: View {
 
     private func setToolMode(_ mode: TopologyEditorToolMode) {
         send(.setActiveTool(mode: mode))
+
+        switch mode {
+        case .select:
+            send(.setInteractionMode(mode: "paletteTap:select"))
+        case .connect:
+            send(.setInteractionMode(mode: "paletteTap:connect"))
+        case let .place(kind):
+            send(.setInteractionMode(mode: "paletteTap:place:\(kind.rawValue)"))
+        }
     }
 
     private func handleStartSimulation() {
@@ -136,6 +182,33 @@ struct TopologyEditorView: View {
 
     private func handleStopSimulation() {
         send(.stopSimulation)
+    }
+
+    private func handlePaletteDragPrepared(_ kind: TopologyNodeKind) {
+        guard state.simulationPhase == .stopped else {
+            return
+        }
+
+        send(.setInteractionMode(mode: "paletteDrag:start:\(kind.rawValue)"))
+    }
+
+    private func handlePaletteDrop(items: [String], location: CGPoint) -> Bool {
+        guard state.simulationPhase == .stopped else {
+            return false
+        }
+
+        guard let first = items.first,
+              let kind = TopologyNodeKind(rawValue: first),
+              kind != .unsupported
+        else {
+            send(.setInteractionMode(mode: "paletteDrag:invalidPayload"))
+            return false
+        }
+
+        send(.setActiveTool(mode: .place(kind)))
+        send(.setInteractionMode(mode: "paletteDrag:drop:\(kind.rawValue)"))
+        handleCanvasTap(location)
+        return true
     }
 
     private func handleSimulationPhaseChange(_ phase: TopologySimulationPhase) {
@@ -201,6 +274,7 @@ struct TopologyEditorView: View {
             guard canvasWorldBounds.contains(worldPoint) else {
                 return
             }
+            send(.setInteractionMode(mode: "canvasTap:place:\(kind.rawValue)"))
             send(.placeNode(kind: kind, at: worldPoint, nodeID: UUID()))
 
         case .select:

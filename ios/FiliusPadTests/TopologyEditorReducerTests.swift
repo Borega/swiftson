@@ -539,6 +539,89 @@ final class TopologyEditorReducerTests: XCTestCase {
         XCTAssertNil(state.lastPingFault)
     }
 
+    func testShortestPathHopCountReturnsExpectedHopsForLinearTopology() {
+        var state = TopologyEditorState()
+
+        let sourceNodeID = addNode(kind: .pc, at: CGPoint(x: 20, y: 20), to: &state)
+        let switchAID = addNode(kind: .networkSwitch, at: CGPoint(x: 140, y: 20), to: &state)
+        let switchBID = addNode(kind: .networkSwitch, at: CGPoint(x: 260, y: 20), to: &state)
+        let targetNodeID = addNode(kind: .pc, at: CGPoint(x: 380, y: 20), to: &state)
+
+        connect(sourceNodeID, switchAID, state: &state)
+        connect(switchAID, switchBID, state: &state)
+        connect(switchBID, targetNodeID, state: &state)
+
+        XCTAssertEqual(state.graph.shortestPathHopCount(from: sourceNodeID, to: targetNodeID), 3)
+        XCTAssertEqual(state.graph.shortestPathNodeIDs(from: sourceNodeID, to: targetNodeID), [sourceNodeID, switchAID, switchBID, targetNodeID])
+    }
+
+    func testShortestPathHelpersHandleIdentityAndMissingNodesDeterministically() {
+        var state = TopologyEditorState()
+
+        let existingNodeID = addNode(kind: .pc, at: CGPoint(x: 20, y: 20), to: &state)
+        let missingNodeID = uuid("99999999-9999-9999-9999-999999999999")
+
+        XCTAssertEqual(state.graph.shortestPathHopCount(from: existingNodeID, to: existingNodeID), 0)
+        XCTAssertEqual(state.graph.shortestPathNodeIDs(from: existingNodeID, to: existingNodeID), [existingNodeID])
+        XCTAssertNil(state.graph.shortestPathHopCount(from: existingNodeID, to: missingNodeID))
+        XCTAssertNil(state.graph.shortestPathNodeIDs(from: existingNodeID, to: missingNodeID))
+    }
+
+    func testShortestPathNodeIDsPrefersLexicographicallyStableRouteWhenHopsTie() {
+        var state = TopologyEditorState()
+
+        let sourceNodeID = addNode(
+            kind: .networkSwitch,
+            at: CGPoint(x: 40, y: 40),
+            nodeID: uuid("10000000-0000-0000-0000-000000000001"),
+            to: &state
+        )
+        let preferredMidNodeID = addNode(
+            kind: .networkSwitch,
+            at: CGPoint(x: 180, y: 10),
+            nodeID: uuid("20000000-0000-0000-0000-000000000002"),
+            to: &state
+        )
+        let alternateMidNodeID = addNode(
+            kind: .networkSwitch,
+            at: CGPoint(x: 180, y: 100),
+            nodeID: uuid("30000000-0000-0000-0000-000000000003"),
+            to: &state
+        )
+        let targetNodeID = addNode(
+            kind: .networkSwitch,
+            at: CGPoint(x: 340, y: 40),
+            nodeID: uuid("40000000-0000-0000-0000-000000000004"),
+            to: &state
+        )
+
+        // Insert links in non-lexicographic order to prove deterministic route selection is data-order independent.
+        connect(sourceNodeID, alternateMidNodeID, state: &state)
+        connect(sourceNodeID, preferredMidNodeID, state: &state)
+        connect(alternateMidNodeID, targetNodeID, state: &state)
+        connect(preferredMidNodeID, targetNodeID, state: &state)
+
+        XCTAssertEqual(state.graph.shortestPathHopCount(from: sourceNodeID, to: targetNodeID), 2)
+        XCTAssertEqual(state.graph.shortestPathNodeIDs(from: sourceNodeID, to: targetNodeID), [sourceNodeID, preferredMidNodeID, targetNodeID])
+    }
+
+    func testAdjacencyAndReachabilityHelpersPreserveExistingSemantics() {
+        var state = TopologyEditorState()
+
+        let sourceNodeID = addNode(kind: .networkSwitch, at: CGPoint(x: 30, y: 30), to: &state)
+        let firstNeighborID = addNode(kind: .networkSwitch, at: CGPoint(x: 180, y: 30), to: &state)
+        let secondNeighborID = addNode(kind: .networkSwitch, at: CGPoint(x: 180, y: 150), to: &state)
+        let disconnectedNodeID = addNode(kind: .networkSwitch, at: CGPoint(x: 340, y: 30), to: &state)
+
+        connect(sourceNodeID, firstNeighborID, state: &state)
+        connect(sourceNodeID, secondNeighborID, state: &state)
+
+        XCTAssertEqual(state.graph.adjacentNodeIDs(for: sourceNodeID), [firstNeighborID, secondNeighborID])
+        XCTAssertTrue(state.graph.isReachable(from: sourceNodeID, to: secondNeighborID))
+        XCTAssertFalse(state.graph.isReachable(from: sourceNodeID, to: disconnectedNodeID))
+        XCTAssertNil(state.graph.shortestPathHopCount(from: sourceNodeID, to: disconnectedNodeID))
+    }
+
     func testPersistenceRevisionAdvancesOnlyForDurableMutations() {
         var state = TopologyEditorState()
         let nodeID = addNode(kind: .pc, at: CGPoint(x: 20, y: 20), to: &state)
@@ -605,7 +688,16 @@ final class TopologyEditorReducerTests: XCTestCase {
 
     @discardableResult
     private func addNode(kind: TopologyNodeKind, at position: CGPoint, to state: inout TopologyEditorState) -> UUID {
-        let nodeID = UUID()
+        addNode(kind: kind, at: position, nodeID: UUID(), to: &state)
+    }
+
+    @discardableResult
+    private func addNode(
+        kind: TopologyNodeKind,
+        at position: CGPoint,
+        nodeID: UUID,
+        to state: inout TopologyEditorState
+    ) -> UUID {
         TopologyEditorReducer.reduce(state: &state, action: .placeNode(kind: kind, at: position, nodeID: nodeID))
         return nodeID
     }

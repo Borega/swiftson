@@ -62,7 +62,9 @@ final class TopologyProjectPersistenceTests: XCTestCase {
         state.lastValidationError = .duplicateLink
         state.lastAction = "zoomCanvas"
         state.lastActionAt = Date(timeIntervalSince1970: 500)
+        state.lastInteractionMode = "canvasTap:place:pc"
         state.transitionCount = 72
+        state.persistenceRevision = 42
 
         let store = TopologyProjectStore(fileURL: tempDirectoryURL.appendingPathComponent("project.json"))
         try store.save(state: state, savedAt: Date(timeIntervalSince1970: 1_700_000_000))
@@ -72,6 +74,8 @@ final class TopologyProjectPersistenceTests: XCTestCase {
         XCTAssertEqual(loaded.graph, state.graph)
         XCTAssertEqual(loaded.viewport, state.viewport)
         XCTAssertEqual(loaded.runtimeDeviceConfigurations, state.runtimeDeviceConfigurations)
+        XCTAssertEqual(loaded.persistenceRevision, 42)
+        XCTAssertEqual(loaded.lastPersistedRevision, 42)
         XCTAssertEqual(loaded.graph.nodes.first(where: { $0.id == switchNode.id })?.ports.count, 8)
 
         XCTAssertTrue(loaded.selectedNodeIDs.isEmpty)
@@ -88,6 +92,7 @@ final class TopologyProjectPersistenceTests: XCTestCase {
         XCTAssertNil(loaded.lastValidationError)
         XCTAssertNil(loaded.lastAction)
         XCTAssertNil(loaded.lastActionAt)
+        XCTAssertNil(loaded.lastInteractionMode)
         XCTAssertEqual(loaded.transitionCount, 0)
     }
 
@@ -151,6 +156,26 @@ final class TopologyProjectPersistenceTests: XCTestCase {
                 expectedCode: .malformedPayload
             )
         }
+    }
+
+    func testLoadLegacyPayloadWithoutRecoveryMetadataDefaultsSafely() throws {
+        let fileURL = tempDirectoryURL.appendingPathComponent("legacy-without-recovery-metadata.json")
+
+        var legacyEnvelope = envelopeDictionary()
+        legacyEnvelope.removeValue(forKey: "saveReason")
+
+        if var payload = legacyEnvelope["payload"] as? [String: Any] {
+            payload.removeValue(forKey: "persistenceRevision")
+            legacyEnvelope["payload"] = payload
+        }
+
+        try writeJSON(legacyEnvelope, to: fileURL)
+
+        let store = TopologyProjectStore(fileURL: fileURL)
+        let loaded = try store.load()
+
+        XCTAssertEqual(loaded.persistenceRevision, 0)
+        XCTAssertEqual(loaded.lastPersistedRevision, 0)
     }
 
     func testLoadRejectsUnknownEnvelopeField() throws {
@@ -295,13 +320,15 @@ final class TopologyProjectPersistenceTests: XCTestCase {
                 "offset": ["width": 0.0, "height": 0.0],
                 "scale": 1.0
             ],
-            "runtimeDeviceConfigurations": []
+            "runtimeDeviceConfigurations": [],
+            "persistenceRevision": 0
         ]
 
         var envelope: [String: Any] = [
             "format": format,
             "schemaVersion": schemaVersion,
             "savedAt": ISO8601DateFormatter().string(from: Date(timeIntervalSince1970: 1_700_000_000)),
+            "saveReason": TopologyProjectSaveReason.autosave.rawValue,
             "payload": payload ?? defaultPayload
         ]
 

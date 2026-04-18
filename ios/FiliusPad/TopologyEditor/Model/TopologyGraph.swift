@@ -117,6 +117,79 @@ struct TopologyGraph: Equatable {
         return false
     }
 
+    func shortestPathHopCount(from sourceNodeID: UUID, to targetNodeID: UUID) -> Int? {
+        guard let path = shortestPathNodeIDs(from: sourceNodeID, to: targetNodeID) else {
+            return nil
+        }
+
+        return max(0, path.count - 1)
+    }
+
+    func shortestPathNodeIDs(from sourceNodeID: UUID, to targetNodeID: UUID) -> [UUID]? {
+        guard containsNode(id: sourceNodeID), containsNode(id: targetNodeID) else {
+            return nil
+        }
+
+        if sourceNodeID == targetNodeID {
+            return [sourceNodeID]
+        }
+
+        let adjacencyByNodeID = deterministicAdjacencyMap()
+        var visited: Set<UUID> = [sourceNodeID]
+        var queue: [UUID] = [sourceNodeID]
+        var predecessors: [UUID: UUID] = [:]
+        var cursor = 0
+
+        while cursor < queue.count {
+            let nodeID = queue[cursor]
+            cursor += 1
+
+            for neighborID in adjacencyByNodeID[nodeID, default: []] where visited.insert(neighborID).inserted {
+                predecessors[neighborID] = nodeID
+
+                if neighborID == targetNodeID {
+                    return buildPath(from: sourceNodeID, to: targetNodeID, predecessors: predecessors)
+                }
+
+                queue.append(neighborID)
+            }
+        }
+
+        return nil
+    }
+
+    private func deterministicAdjacencyMap() -> [UUID: [UUID]] {
+        var adjacencyByNodeID: [UUID: [UUID]] = [:]
+        adjacencyByNodeID.reserveCapacity(nodes.count)
+
+        for link in links {
+            adjacencyByNodeID[link.sourceNodeID, default: []].append(link.targetNodeID)
+            adjacencyByNodeID[link.targetNodeID, default: []].append(link.sourceNodeID)
+        }
+
+        for (nodeID, neighbors) in adjacencyByNodeID {
+            adjacencyByNodeID[nodeID] = neighbors.sorted { $0.uuidString < $1.uuidString }
+        }
+
+        return adjacencyByNodeID
+    }
+
+    private func buildPath(from sourceNodeID: UUID, to targetNodeID: UUID, predecessors: [UUID: UUID]) -> [UUID]? {
+        var path: [UUID] = [targetNodeID]
+        var cursor = targetNodeID
+
+        while cursor != sourceNodeID {
+            guard let predecessor = predecessors[cursor] else {
+                return nil
+            }
+
+            cursor = predecessor
+            path.append(cursor)
+        }
+
+        return path.reversed()
+    }
+
     func linkProjection(for linkID: UUID) -> TopologyLinkProjection? {
         guard let link = links.first(where: { $0.id == linkID }) else {
             return nil

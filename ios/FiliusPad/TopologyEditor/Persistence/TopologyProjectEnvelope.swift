@@ -1,5 +1,10 @@
 import Foundation
 
+enum TopologyProjectSaveReason: String, Codable, Equatable {
+    case autosave
+    case manualSave
+}
+
 struct TopologyProjectEnvelope: Codable, Equatable {
     static let formatIdentifier = "com.filius.pad.project"
     static let currentSchemaVersion = 1
@@ -7,17 +12,20 @@ struct TopologyProjectEnvelope: Codable, Equatable {
     let format: String
     let schemaVersion: Int
     let savedAt: Date
+    let saveReason: TopologyProjectSaveReason
     let payload: TopologyProjectSnapshot
 
     init(
         format: String = TopologyProjectEnvelope.formatIdentifier,
         schemaVersion: Int = TopologyProjectEnvelope.currentSchemaVersion,
         savedAt: Date,
+        saveReason: TopologyProjectSaveReason = .autosave,
         payload: TopologyProjectSnapshot
     ) {
         self.format = format
         self.schemaVersion = schemaVersion
         self.savedAt = savedAt
+        self.saveReason = saveReason
         self.payload = payload
     }
 
@@ -25,6 +33,7 @@ struct TopologyProjectEnvelope: Codable, Equatable {
         case format
         case schemaVersion
         case savedAt
+        case saveReason
         case payload
     }
 
@@ -39,6 +48,7 @@ struct TopologyProjectEnvelope: Codable, Equatable {
         format = try container.decode(String.self, forKey: .format)
         schemaVersion = try container.decode(Int.self, forKey: .schemaVersion)
         savedAt = try container.decode(Date.self, forKey: .savedAt)
+        saveReason = try container.decodeIfPresent(TopologyProjectSaveReason.self, forKey: .saveReason) ?? .autosave
         payload = try container.decode(TopologyProjectSnapshot.self, forKey: .payload)
     }
 }

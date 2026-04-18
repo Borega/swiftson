@@ -46,6 +46,12 @@ final class TopologyProjectPersistenceWorkflowUITests: XCTestCase {
         assertDiagnosticContains("debug.nodeCount", expectedSubstring: "Nodes: 2")
         assertDiagnosticContains("debug.lastPersistenceLoadAt", expectedSubstring: "T")
         assertDiagnosticContains("debug.lastPersistenceError", expectedSubstring: "none")
+        assertDiagnosticContains("debug.lastRecoveryState", expectedSubstring: "success:")
+
+        let recoveryBanner = requireElement(app.otherElements["recovery.notice.banner"], named: "recovery.notice.banner")
+        XCTAssertTrue(recoveryBanner.exists, "Expected visible recovery banner after autosave restore")
+        tapButton("recovery.notice.dismiss")
+        XCTAssertFalse(recoveryBanner.waitForExistence(timeout: 1), "Recovery banner should dismiss when requested")
 
         tapButton("runtime.control.start")
         tapCanvas(at: CGVector(dx: 0.25, dy: 0.30))
@@ -112,6 +118,8 @@ final class TopologyProjectPersistenceWorkflowUITests: XCTestCase {
         _ = requireElement(app.staticTexts["debug.lastPersistenceSaveAt"], named: "debug.lastPersistenceSaveAt")
         _ = requireElement(app.staticTexts["debug.lastPersistenceLoadAt"], named: "debug.lastPersistenceLoadAt")
         _ = requireElement(app.staticTexts["debug.lastPersistenceError"], named: "debug.lastPersistenceError")
+        _ = requireElement(app.staticTexts["debug.lastRecoveryState"], named: "debug.lastRecoveryState")
+        _ = requireElement(app.staticTexts["debug.lastRecoveryAt"], named: "debug.lastRecoveryAt")
         _ = requireElement(app.buttons["palette.tool.place.pc"], named: "palette.tool.place.pc")
         _ = requireElement(app.buttons["palette.tool.place.switch"], named: "palette.tool.place.switch")
         _ = requireElement(app.buttons["runtime.control.start"], named: "runtime.control.start")

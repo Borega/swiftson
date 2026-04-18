@@ -9,15 +9,18 @@ struct TopologyProjectSnapshot: Codable, Equatable {
     let graph: TopologyGraphSnapshot
     let viewport: ViewportTransformSnapshot
     let runtimeDeviceConfigurations: [TopologyRuntimeDeviceConfigurationSnapshot]
+    let persistenceRevision: UInt64
 
     init(
         graph: TopologyGraphSnapshot,
         viewport: ViewportTransformSnapshot,
-        runtimeDeviceConfigurations: [TopologyRuntimeDeviceConfigurationSnapshot]
+        runtimeDeviceConfigurations: [TopologyRuntimeDeviceConfigurationSnapshot],
+        persistenceRevision: UInt64
     ) {
         self.graph = graph
         self.viewport = viewport
         self.runtimeDeviceConfigurations = runtimeDeviceConfigurations
+        self.persistenceRevision = persistenceRevision
     }
 
     init(state: TopologyEditorState) {
@@ -32,12 +35,14 @@ struct TopologyProjectSnapshot: Codable, Equatable {
                 )
             }
             .sorted { $0.nodeID.uuidString < $1.nodeID.uuidString }
+        persistenceRevision = state.persistenceRevision
     }
 
     enum CodingKeys: String, CodingKey, CaseIterable {
         case graph
         case viewport
         case runtimeDeviceConfigurations
+        case persistenceRevision
     }
 
     init(from decoder: Decoder) throws {
@@ -54,6 +59,7 @@ struct TopologyProjectSnapshot: Codable, Equatable {
             [TopologyRuntimeDeviceConfigurationSnapshot].self,
             forKey: .runtimeDeviceConfigurations
         )
+        persistenceRevision = try container.decodeIfPresent(UInt64.self, forKey: .persistenceRevision) ?? 0
     }
 
     func toEditorState() throws -> TopologyEditorState {
@@ -75,6 +81,8 @@ struct TopologyProjectSnapshot: Codable, Equatable {
                 )
             }
         )
+        state.persistenceRevision = persistenceRevision
+        state.lastPersistedRevision = persistenceRevision
 
         return state
     }

@@ -252,6 +252,36 @@ final class TopologyEditorDiagnosticsTests: XCTestCase {
         XCTAssertNil(state.lastPersistenceError)
     }
 
+    func testRecoverySuccessMetadataIsInspectableAndDismissible() {
+        var state = TopologyEditorState()
+
+        state.recordRecoverySuccess(message: "Recovered autosave (revision: 9)")
+
+        XCTAssertEqual(state.lastRecoveryMessage, "Recovered autosave (revision: 9)")
+        XCTAssertEqual(state.lastRecoverySucceeded, true)
+        XCTAssertTrue(state.isRecoveryNoticeVisible)
+        XCTAssertNotNil(state.lastRecoveryAt)
+
+        TopologyEditorReducer.reduce(state: &state, action: .dismissRecoveryNotice)
+        XCTAssertFalse(state.isRecoveryNoticeVisible)
+        XCTAssertEqual(state.lastAction, "dismissRecoveryNotice")
+    }
+
+    func testRecoveryFailureMetadataIsInspectableAndDismissible() {
+        var state = TopologyEditorState()
+
+        state.recordRecoveryFailure(message: "Recovery failed: malformedPayload")
+
+        XCTAssertEqual(state.lastRecoveryMessage, "Recovery failed: malformedPayload")
+        XCTAssertEqual(state.lastRecoverySucceeded, false)
+        XCTAssertTrue(state.isRecoveryNoticeVisible)
+        XCTAssertNotNil(state.lastRecoveryAt)
+
+        TopologyEditorReducer.reduce(state: &state, action: .dismissRecoveryNotice)
+        XCTAssertFalse(state.isRecoveryNoticeVisible)
+        XCTAssertEqual(state.lastAction, "dismissRecoveryNotice")
+    }
+
     // MARK: - Helpers
 
     @discardableResult

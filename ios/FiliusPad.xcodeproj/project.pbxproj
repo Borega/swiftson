@@ -33,6 +33,7 @@
 		A13400000000000000000001 /* TopologyProjectPersistenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21200000000000000000024 /* TopologyProjectPersistenceTests.swift */; };
 		A13500000000000000000001 /* TopologyProjectPersistenceWorkflowUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21200000000000000000025 /* TopologyProjectPersistenceWorkflowUITests.swift */; };
 		A13600000000000000000001 /* TopologyIntegratedAcceptanceUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21200000000000000000026 /* TopologyIntegratedAcceptanceUITests.swift */; };
+		A13700000000000000000001 /* JavaParity in Resources */ = {isa = PBXBuildFile; fileRef = A21200000000000000000027 /* JavaParity */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -79,6 +80,7 @@
 		A21200000000000000000024 /* TopologyProjectPersistenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopologyProjectPersistenceTests.swift; sourceTree = "<group>"; };
 		A21200000000000000000025 /* TopologyProjectPersistenceWorkflowUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopologyProjectPersistenceWorkflowUITests.swift; sourceTree = "<group>"; };
 		A21200000000000000000026 /* TopologyIntegratedAcceptanceUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopologyIntegratedAcceptanceUITests.swift; sourceTree = "<group>"; };
+		A21200000000000000000027 /* JavaParity */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Assets/JavaParity; sourceTree = "<group>"; };
 		A21300000000000000000001 /* FiliusPad.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FiliusPad.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A21300000000000000000002 /* FiliusPadTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FiliusPadTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A21300000000000000000003 /* FiliusPadUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FiliusPadUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -137,6 +139,7 @@
 				A31600000000000000000001 /* State */,
 				A32100000000000000000001 /* Persistence */,
 				A32000000000000000000001 /* View */,
+				A21200000000000000000027 /* JavaParity */,
 			);
 		};
 		A31500000000000000000001 /* Model */ = {
@@ -319,6 +322,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A13700000000000000000001 /* JavaParity in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

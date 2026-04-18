@@ -91,9 +91,14 @@ struct TopologyEditorState: Equatable {
     var lastPersistenceSaveAt: Date?
     var lastPersistenceLoadAt: Date?
     var lastPersistenceError: TopologyPersistenceFailure?
+    var lastRecoveryMessage: String?
+    var lastRecoveryAt: Date?
+    var lastRecoverySucceeded: Bool?
+    var isRecoveryNoticeVisible = false
     var lastValidationError: TopologyValidationErrorCode?
     var lastAction: String?
     var lastActionAt: Date?
+    var lastInteractionMode: String?
     var transitionCount = 0
 
     mutating func recordPersistenceLoad(at date: Date = Date()) {
@@ -125,6 +130,24 @@ struct TopologyEditorState: Equatable {
     mutating func dismissPersistenceError() {
         lastPersistenceError = nil
     }
+
+    mutating func recordRecoverySuccess(message: String, at date: Date = Date()) {
+        lastRecoveryMessage = message
+        lastRecoveryAt = date
+        lastRecoverySucceeded = true
+        isRecoveryNoticeVisible = true
+    }
+
+    mutating func recordRecoveryFailure(message: String, at date: Date = Date()) {
+        lastRecoveryMessage = message
+        lastRecoveryAt = date
+        lastRecoverySucceeded = false
+        isRecoveryNoticeVisible = true
+    }
+
+    mutating func dismissRecoveryNotice() {
+        isRecoveryNoticeVisible = false
+    }
 }
 
 enum TopologyEditorAction: Equatable {
@@ -146,5 +169,7 @@ enum TopologyEditorAction: Equatable {
     case moveSelectedNodes(delta: CGSize?)
     case panCanvas(delta: CGSize?)
     case zoomCanvas(scaleDelta: CGFloat?, anchor: CGPoint?)
+    case setInteractionMode(mode: String?)
+    case dismissRecoveryNotice
     case dismissPersistenceError
 }

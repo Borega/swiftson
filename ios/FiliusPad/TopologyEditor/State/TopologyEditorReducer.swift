@@ -513,6 +513,12 @@ enum TopologyEditorReducer {
             state.viewport = state.viewport.zoomed(by: scaleDelta, anchor: anchor)
             advancePersistenceRevision(state: &state)
 
+        case let .setInteractionMode(mode):
+            state.lastInteractionMode = normalizedRuntimeValue(mode) ?? "none"
+
+        case .dismissRecoveryNotice:
+            state.dismissRecoveryNotice()
+
         case .dismissPersistenceError:
             state.dismissPersistenceError()
         }
@@ -787,6 +793,10 @@ private extension TopologyEditorAction {
             return "panCanvas"
         case .zoomCanvas:
             return "zoomCanvas"
+        case .setInteractionMode:
+            return "setInteractionMode"
+        case .dismissRecoveryNotice:
+            return "dismissRecoveryNotice"
         case .dismissPersistenceError:
             return "dismissPersistenceError"
         }

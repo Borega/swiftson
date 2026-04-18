@@ -52,22 +52,33 @@ struct FiliusPadApp: App {
         do {
             var restoredState = try await loadStateFromStore()
             restoredState.recordPersistenceLoad()
+            restoredState.recordRecoverySuccess(
+                message: "Recovered autosave (revision: \(restoredState.persistenceRevision))"
+            )
             editorState = restoredState
         } catch let persistenceError as TopologyProjectPersistenceError {
             if persistenceError.code == .fileNotFound {
                 return
             }
 
+            let sanitizedDetail = sanitizePersistenceDetail(persistenceError.detail)
+
             editorState.recordPersistenceFailure(
                 operation: persistenceError.operation,
                 code: persistenceError.code,
-                detail: sanitizePersistenceDetail(persistenceError.detail)
+                detail: sanitizedDetail
+            )
+            editorState.recordRecoveryFailure(
+                message: "Recovery failed: \(persistenceError.code.rawValue)"
             )
         } catch {
             editorState.recordPersistenceFailure(
                 operation: .load,
                 code: .malformedPayload,
                 detail: "Unexpected persistence load failure"
+            )
+            editorState.recordRecoveryFailure(
+                message: "Recovery failed: malformedPayload"
             )
         }
     }

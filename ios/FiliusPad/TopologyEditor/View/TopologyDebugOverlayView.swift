@@ -63,6 +63,12 @@ struct TopologyDebugOverlayView: View {
             Text("Last persistence load: \(debugDate(state.lastPersistenceLoadAt))")
                 .accessibilityIdentifier("debug.lastPersistenceLoadAt")
 
+            Text("Recovery state: \(debugRecoveryState())")
+                .accessibilityIdentifier("debug.lastRecoveryState")
+
+            Text("Last recovery at: \(debugDate(state.lastRecoveryAt))")
+                .accessibilityIdentifier("debug.lastRecoveryAt")
+
             Text("Last persistence error: \(debugPersistenceError(state.lastPersistenceError))")
                 .accessibilityIdentifier("debug.lastPersistenceError")
 
@@ -71,6 +77,9 @@ struct TopologyDebugOverlayView: View {
 
             Text("Last action: \(state.lastAction ?? "none")")
                 .accessibilityIdentifier("debug.lastAction")
+
+            Text("Last interaction mode: \(state.lastInteractionMode ?? "none")")
+                .accessibilityIdentifier("debug.lastInteractionMode")
 
             Text("Transitions: \(state.transitionCount)")
                 .accessibilityIdentifier("debug.transitionCount")
@@ -129,6 +138,24 @@ struct TopologyDebugOverlayView: View {
 
         let timestamp = ISO8601DateFormatter().string(from: failure.occurredAt)
         return "\(failure.operation.rawValue):\(failure.code.rawValue) [\(failure.detail)] @\(timestamp)"
+    }
+
+    private func debugRecoveryState() -> String {
+        guard let message = state.lastRecoveryMessage else {
+            return "none"
+        }
+
+        let prefix: String
+        switch state.lastRecoverySucceeded {
+        case true:
+            prefix = "success"
+        case false:
+            prefix = "failure"
+        case nil:
+            prefix = "unknown"
+        }
+
+        return "\(prefix): \(message)"
     }
 
     private func debugDate(_ date: Date?) -> String {

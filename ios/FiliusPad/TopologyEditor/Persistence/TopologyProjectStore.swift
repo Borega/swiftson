@@ -44,11 +44,16 @@ struct TopologyProjectStore {
         self.decoder = decoder
     }
 
-    func save(state: TopologyEditorState, savedAt: Date = Date()) throws {
+    func save(
+        state: TopologyEditorState,
+        savedAt: Date = Date(),
+        saveReason: TopologyProjectSaveReason = .autosave
+    ) throws {
         let envelope = TopologyProjectEnvelope(
             format: Self.formatIdentifier,
             schemaVersion: Self.supportedSchemaVersion,
             savedAt: savedAt,
+            saveReason: saveReason,
             payload: TopologyProjectSnapshot(state: state)
         )
 
