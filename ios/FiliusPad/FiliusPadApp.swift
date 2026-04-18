@@ -11,15 +11,16 @@ struct FiliusPadApp: App {
     private let projectStore: TopologyProjectStore
     private let autosaveDebounceNanoseconds: UInt64 = 500_000_000
 
-    init(projectStore: TopologyProjectStore? = nil) {
+    init() {
         let launchConfiguration = Self.resolvePersistenceLaunchConfiguration()
         self.launchConfiguration = launchConfiguration
+        self.projectStore = TopologyProjectStore(fileURL: launchConfiguration.autosaveFileURL)
+    }
 
-        if let projectStore {
-            self.projectStore = projectStore
-        } else {
-            self.projectStore = TopologyProjectStore(fileURL: launchConfiguration.autosaveFileURL)
-        }
+    init(projectStore: TopologyProjectStore) {
+        let launchConfiguration = Self.resolvePersistenceLaunchConfiguration()
+        self.launchConfiguration = launchConfiguration
+        self.projectStore = projectStore
     }
 
     var body: some Scene {
