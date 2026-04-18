@@ -5,11 +5,13 @@ final class FiliusPadUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    func testLaunchesBootstrapScreen() throws {
+    func testLaunchesEditorScreen() throws {
         let app = XCUIApplication()
         app.launch()
 
         XCTAssertTrue(app.staticTexts["FiliusPad"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["Topology editor bootstrap ready."].exists)
+        XCTAssertTrue(app.otherElements["canvas.surface"].exists)
+        XCTAssertTrue(app.staticTexts["debug.activeTool"].exists)
+        XCTAssertTrue(app.staticTexts["debug.zoomScale"].exists)
     }
 }

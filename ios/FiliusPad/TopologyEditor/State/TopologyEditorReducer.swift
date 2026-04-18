@@ -60,6 +60,12 @@ enum TopologyEditorReducer {
             state.selectedNodeIDs.removeAll()
             state.activeTool = .select
 
+        case let .setActiveTool(mode):
+            state.activeTool = mode
+            if mode != .connect {
+                state.pendingConnection = nil
+            }
+
         case let .startConnection(nodeID, portID):
             guard let nodeID else {
                 state.lastValidationError = .missingNodeIdentifier
@@ -157,6 +163,27 @@ enum TopologyEditorReducer {
             for nodeID in state.selectedNodeIDs {
                 state.graph.moveNode(withID: nodeID, delta: delta)
             }
+
+        case let .panCanvas(delta):
+            guard let delta, delta.isFinite else {
+                state.lastValidationError = .malformedActionPayload
+                return
+            }
+
+            state.viewport = state.viewport.panned(by: delta)
+
+        case let .zoomCanvas(scaleDelta, anchor):
+            guard let scaleDelta, scaleDelta.isFiniteNumber, scaleDelta > 0 else {
+                state.lastValidationError = .malformedActionPayload
+                return
+            }
+
+            if let anchor, !anchor.isFinite {
+                state.lastValidationError = .malformedActionPayload
+                return
+            }
+
+            state.viewport = state.viewport.zoomed(by: scaleDelta, anchor: anchor)
         }
     }
 
@@ -203,6 +230,24 @@ enum TopologyEditorReducer {
     }
 }
 
+private extension CGSize {
+    var isFinite: Bool {
+        width.isFiniteNumber && height.isFiniteNumber
+    }
+}
+
+private extension CGPoint {
+    var isFinite: Bool {
+        x.isFiniteNumber && y.isFiniteNumber
+    }
+}
+
+private extension CGFloat {
+    var isFiniteNumber: Bool {
+        isFinite && !isNaN
+    }
+}
+
 private extension TopologyEditorAction {
     var debugName: String {
         switch self {
@@ -214,12 +259,18 @@ private extension TopologyEditorAction {
             return "selectNodes"
         case .clearSelection:
             return "clearSelection"
+        case .setActiveTool:
+            return "setActiveTool"
         case .startConnection:
             return "startConnection"
         case .completeConnection:
             return "completeConnection"
         case .moveSelectedNodes:
             return "moveSelectedNodes"
+        case .panCanvas:
+            return "panCanvas"
+        case .zoomCanvas:
+            return "zoomCanvas"
         }
     }
 }

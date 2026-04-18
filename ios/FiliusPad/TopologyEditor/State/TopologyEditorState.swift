@@ -17,6 +17,7 @@ struct TopologyEditorState: Equatable {
     var selectedNodeIDs: Set<UUID> = []
     var activeTool: TopologyEditorToolMode = .select
     var pendingConnection: TopologyConnectionDraft?
+    var viewport = ViewportTransform.identity
     var lastValidationError: TopologyValidationErrorCode?
     var lastAction: String?
     var lastActionAt: Date?
@@ -28,7 +29,10 @@ enum TopologyEditorAction: Equatable {
     case selectSingleNode(nodeID: UUID?)
     case selectNodes(in: CGRect?)
     case clearSelection
+    case setActiveTool(mode: TopologyEditorToolMode)
     case startConnection(nodeID: UUID?, portID: UUID?)
     case completeConnection(nodeID: UUID?, portID: UUID?)
     case moveSelectedNodes(delta: CGSize?)
+    case panCanvas(delta: CGSize?)
+    case zoomCanvas(scaleDelta: CGFloat?, anchor: CGPoint?)
 }

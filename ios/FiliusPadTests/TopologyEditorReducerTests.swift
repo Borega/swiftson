@@ -236,6 +236,42 @@ final class TopologyEditorReducerTests: XCTestCase {
         XCTAssertNotEqual(afterProjection, beforeProjection)
     }
 
+    func testPanAndZoomUpdateViewportWithoutMutatingGraph() {
+        var state = TopologyEditorState()
+        let nodeID = addNode(kind: .pc, at: CGPoint(x: 50, y: 50), to: &state)
+        let graphSnapshot = state.graph
+
+        TopologyEditorReducer.reduce(state: &state, action: .setActiveTool(mode: .connect))
+        TopologyEditorReducer.reduce(state: &state, action: .panCanvas(delta: CGSize(width: 24, height: -12)))
+        TopologyEditorReducer.reduce(
+            state: &state,
+            action: .zoomCanvas(scaleDelta: 1.5, anchor: CGPoint(x: 100, y: 100))
+        )
+
+        XCTAssertEqual(state.graph, graphSnapshot)
+        XCTAssertNotEqual(state.viewport.offset, .zero)
+        XCTAssertGreaterThan(state.viewport.scale, 1)
+        XCTAssertEqual(state.activeTool, .connect)
+        XCTAssertEqual(state.selectedNodeIDs, [nodeID])
+        XCTAssertNil(state.lastValidationError)
+    }
+
+    func testMalformedViewportPayloadsAreRejectedAndDoNotChangeViewport() {
+        var state = TopologyEditorState()
+        let initialViewport = state.viewport
+
+        TopologyEditorReducer.reduce(
+            state: &state,
+            action: .panCanvas(delta: CGSize(width: .infinity, height: 10))
+        )
+        XCTAssertEqual(state.lastValidationError, .malformedActionPayload)
+        XCTAssertEqual(state.viewport, initialViewport)
+
+        TopologyEditorReducer.reduce(state: &state, action: .zoomCanvas(scaleDelta: 0, anchor: nil))
+        XCTAssertEqual(state.lastValidationError, .malformedActionPayload)
+        XCTAssertEqual(state.viewport, initialViewport)
+    }
+
     // MARK: - Helpers
 
     @discardableResult

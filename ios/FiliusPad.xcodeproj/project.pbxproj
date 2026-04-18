@@ -17,6 +17,11 @@
 		A11800000000000000000001 /* TopologyEditorReducer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21200000000000000000008 /* TopologyEditorReducer.swift */; };
 		A11900000000000000000001 /* TopologyValidationError.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21200000000000000000009 /* TopologyValidationError.swift */; };
 		A12000000000000000000001 /* TopologyEditorDiagnosticsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21200000000000000000010 /* TopologyEditorDiagnosticsTests.swift */; };
+		A12100000000000000000001 /* TopologyEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21200000000000000000011 /* TopologyEditorView.swift */; };
+		A12200000000000000000001 /* TopologyCanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21200000000000000000012 /* TopologyCanvasView.swift */; };
+		A12300000000000000000001 /* TopologyPaletteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21200000000000000000013 /* TopologyPaletteView.swift */; };
+		A12400000000000000000001 /* ViewportTransform.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21200000000000000000014 /* ViewportTransform.swift */; };
+		A12500000000000000000001 /* ViewportTransformTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21200000000000000000015 /* ViewportTransformTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -47,6 +52,11 @@
 		A21200000000000000000008 /* TopologyEditorReducer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopologyEditorReducer.swift; sourceTree = "<group>"; };
 		A21200000000000000000009 /* TopologyValidationError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopologyValidationError.swift; sourceTree = "<group>"; };
 		A21200000000000000000010 /* TopologyEditorDiagnosticsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopologyEditorDiagnosticsTests.swift; sourceTree = "<group>"; };
+		A21200000000000000000011 /* TopologyEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopologyEditorView.swift; sourceTree = "<group>"; };
+		A21200000000000000000012 /* TopologyCanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopologyCanvasView.swift; sourceTree = "<group>"; };
+		A21200000000000000000013 /* TopologyPaletteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopologyPaletteView.swift; sourceTree = "<group>"; };
+		A21200000000000000000014 /* ViewportTransform.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewportTransform.swift; sourceTree = "<group>"; };
+		A21200000000000000000015 /* ViewportTransformTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewportTransformTests.swift; sourceTree = "<group>"; };
 		A21300000000000000000001 /* FiliusPad.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FiliusPad.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A21300000000000000000002 /* FiliusPadTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FiliusPadTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A21300000000000000000003 /* FiliusPadUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FiliusPadUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -103,6 +113,7 @@
 			children = (
 				A31500000000000000000001 /* Model */,
 				A31600000000000000000001 /* State */,
+				A32000000000000000000001 /* View */,
 			);
 		};
 		A31500000000000000000001 /* Model */ = {
@@ -114,6 +125,7 @@
 				A21200000000000000000003 /* TopologyLink.swift */,
 				A21200000000000000000004 /* TopologyGraph.swift */,
 				A21200000000000000000009 /* TopologyValidationError.swift */,
+				A21200000000000000000014 /* ViewportTransform.swift */,
 			);
 		};
 		A31600000000000000000001 /* State */ = {
@@ -125,6 +137,16 @@
 				A21200000000000000000008 /* TopologyEditorReducer.swift */,
 			);
 		};
+		A32000000000000000000001 /* View */ = {
+			isa = PBXGroup;
+			path = View;
+			sourceTree = "<group>";
+			children = (
+				A21200000000000000000011 /* TopologyEditorView.swift */,
+				A21200000000000000000012 /* TopologyCanvasView.swift */,
+				A21200000000000000000013 /* TopologyPaletteView.swift */,
+			);
+		};
 		A31700000000000000000001 /* FiliusPadTests */ = {
 			isa = PBXGroup;
 			path = FiliusPadTests;
@@ -132,6 +154,7 @@
 			children = (
 				A21200000000000000000006 /* TopologyEditorReducerTests.swift */,
 				A21200000000000000000010 /* TopologyEditorDiagnosticsTests.swift */,
+				A21200000000000000000015 /* ViewportTransformTests.swift */,
 			);
 		};
 		A31800000000000000000001 /* FiliusPadUITests */ = {
@@ -286,6 +309,10 @@
 				A11500000000000000000001 /* TopologyEditorState.swift in Sources */,
 				A11800000000000000000001 /* TopologyEditorReducer.swift in Sources */,
 				A11900000000000000000001 /* TopologyValidationError.swift in Sources */,
+				A12100000000000000000001 /* TopologyEditorView.swift in Sources */,
+				A12200000000000000000001 /* TopologyCanvasView.swift in Sources */,
+				A12300000000000000000001 /* TopologyPaletteView.swift in Sources */,
+				A12400000000000000000001 /* ViewportTransform.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -295,6 +322,7 @@
 			files = (
 				A11600000000000000000001 /* TopologyEditorReducerTests.swift in Sources */,
 				A12000000000000000000001 /* TopologyEditorDiagnosticsTests.swift in Sources */,
+				A12500000000000000000001 /* ViewportTransformTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
