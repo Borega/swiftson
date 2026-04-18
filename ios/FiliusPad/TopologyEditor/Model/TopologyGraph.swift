@@ -72,6 +72,51 @@ struct TopologyGraph: Equatable {
             .map(\.id)
     }
 
+    func adjacentNodeIDs(for nodeID: UUID) -> [UUID] {
+        links.compactMap { link in
+            if link.sourceNodeID == nodeID {
+                return link.targetNodeID
+            }
+
+            if link.targetNodeID == nodeID {
+                return link.sourceNodeID
+            }
+
+            return nil
+        }
+    }
+
+    func isReachable(from sourceNodeID: UUID, to targetNodeID: UUID) -> Bool {
+        guard containsNode(id: sourceNodeID), containsNode(id: targetNodeID) else {
+            return false
+        }
+
+        if sourceNodeID == targetNodeID {
+            return true
+        }
+
+        var visited: Set<UUID> = [sourceNodeID]
+        var queue: [UUID] = [sourceNodeID]
+        var cursor = 0
+
+        while cursor < queue.count {
+            let nodeID = queue[cursor]
+            cursor += 1
+
+            for neighborID in adjacentNodeIDs(for: nodeID) {
+                if neighborID == targetNodeID {
+                    return true
+                }
+
+                if visited.insert(neighborID).inserted {
+                    queue.append(neighborID)
+                }
+            }
+        }
+
+        return false
+    }
+
     func linkProjection(for linkID: UUID) -> TopologyLinkProjection? {
         guard let link = links.first(where: { $0.id == linkID }) else {
             return nil

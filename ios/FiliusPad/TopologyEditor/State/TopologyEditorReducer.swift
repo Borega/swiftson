@@ -2,6 +2,8 @@ import CoreGraphics
 import Foundation
 
 enum TopologyEditorReducer {
+    private static let maxRuntimeConsoleEntriesPerDevice = 60
+
     static func reduce(state: inout TopologyEditorState, action: TopologyEditorAction) {
         state.transitionCount += 1
         state.lastAction = action.debugName
@@ -236,6 +238,230 @@ enum TopologyEditorReducer {
                 detail: normalizedCode
             )
 
+        case let .openRuntimeDevice(nodeID):
+            guard let nodeID else {
+                setMalformedRuntimePayload(
+                    state: &state,
+                    reason: "openRuntimeDevice requires nodeID"
+                )
+                return
+            }
+
+            guard state.graph.containsNode(id: nodeID) else {
+                state.lastValidationError = .nodeNotFound
+                state.lastRuntimeFault = TopologyRuntimeFault(
+                    category: .networkRouting,
+                    code: "runtimeDeviceNotFound",
+                    message: "Cannot open runtime panel for unknown node \(nodeID.uuidString)"
+                )
+                recordRuntimeEvent(state: &state, code: .simulationFaultReported, detail: "runtimeDeviceNotFound")
+                return
+            }
+
+            state.openedRuntimeDeviceID = nodeID
+            state.lastRuntimeFault = nil
+            recordRuntimeEvent(state: &state, code: .runtimeDeviceOpened, detail: nodeID.uuidString)
+
+        case .closeRuntimeDevice:
+            guard let previousNodeID = state.openedRuntimeDeviceID else {
+                recordRuntimeEvent(state: &state, code: .runtimeDeviceCloseIgnoredAlreadyClosed)
+                return
+            }
+
+            state.openedRuntimeDeviceID = nil
+            recordRuntimeEvent(state: &state, code: .runtimeDeviceClosed, detail: previousNodeID.uuidString)
+
+        case let .saveRuntimeDeviceIP(nodeID, ipAddress, subnetMask):
+            guard let nodeID else {
+                setMalformedRuntimePayload(
+                    state: &state,
+                    reason: "saveRuntimeDeviceIP requires nodeID"
+                )
+                return
+            }
+
+            guard state.graph.containsNode(id: nodeID) else {
+                state.lastValidationError = .nodeNotFound
+                state.lastRuntimeFault = TopologyRuntimeFault(
+                    category: .networkConfiguration,
+                    code: "runtimeDeviceNotFound",
+                    message: "Cannot save IP for unknown node \(nodeID.uuidString)"
+                )
+                recordRuntimeEvent(state: &state, code: .runtimeDeviceIPRejectedInvalidConfiguration, detail: "runtimeDeviceNotFound")
+                return
+            }
+
+            guard let normalizedIPAddress = normalizedIPv4Address(ipAddress) else {
+                state.lastRuntimeFault = TopologyRuntimeFault(
+                    category: .networkConfiguration,
+                    code: "invalidIPv4Address",
+                    message: "IP address must use four octets between 0 and 255"
+                )
+                recordRuntimeEvent(state: &state, code: .runtimeDeviceIPRejectedInvalidConfiguration, detail: "invalidIPv4Address")
+                return
+            }
+
+            guard let normalizedSubnetMask = normalizedSubnetMask(subnetMask) else {
+                state.lastRuntimeFault = TopologyRuntimeFault(
+                    category: .networkConfiguration,
+                    code: "invalidSubnetMask",
+                    message: "Subnet mask must be a contiguous IPv4 mask"
+                )
+                recordRuntimeEvent(state: &state, code: .runtimeDeviceIPRejectedInvalidConfiguration, detail: "invalidSubnetMask")
+                return
+            }
+
+            state.runtimeDeviceConfigurations[nodeID] = TopologyRuntimeDeviceConfiguration(
+                ipAddress: normalizedIPAddress,
+                subnetMask: normalizedSubnetMask
+            )
+            state.lastRuntimeFault = nil
+            recordRuntimeEvent(
+                state: &state,
+                code: .runtimeDeviceIPSaved,
+                detail: "node=\(nodeID.uuidString),ip=\(normalizedIPAddress),subnet=\(normalizedSubnetMask)"
+            )
+
+        case let .executePing(nodeID, command):
+            guard let sourceNodeID = nodeID else {
+                setMalformedPingPayload(
+                    state: &state,
+                    detail: "missing source node identifier"
+                )
+                return
+            }
+
+            guard state.graph.containsNode(id: sourceNodeID) else {
+                setPingFailure(
+                    state: &state,
+                    sourceNodeID: sourceNodeID,
+                    eventCode: .pingRejectedInvalidSourceConfiguration,
+                    faultCategory: .networkConfiguration,
+                    faultCode: "sourceNodeNotFound",
+                    message: "Ping source node does not exist in graph",
+                    detail: "sourceNodeNotFound"
+                )
+                return
+            }
+
+            let normalizedCommand = normalizedRuntimeValue(command) ?? ""
+            appendConsoleLine(
+                state: &state,
+                nodeID: sourceNodeID,
+                line: "> \(normalizedCommand.isEmpty ? "(empty)" : normalizedCommand)"
+            )
+
+            guard state.simulationPhase == .running else {
+                setPingFailure(
+                    state: &state,
+                    sourceNodeID: sourceNodeID,
+                    eventCode: .pingRejectedSimulationStopped,
+                    faultCategory: .runtimeFault,
+                    faultCode: "pingWhileSimulationStopped",
+                    message: "Ping commands require a running simulation",
+                    detail: "phase=\(state.simulationPhase.rawValue)"
+                )
+                return
+            }
+
+            switch parsePingCommand(normalizedCommand) {
+            case let .failure(reason):
+                setPingFailure(
+                    state: &state,
+                    sourceNodeID: sourceNodeID,
+                    eventCode: .pingRejectedMalformedCommand,
+                    faultCategory: .commandValidation,
+                    faultCode: "malformedPingCommand",
+                    message: reason,
+                    detail: "malformedPingCommand"
+                )
+                return
+
+            case let .success(targetIPAddress):
+                guard let sourceConfiguration = state.runtimeDeviceConfigurations[sourceNodeID] else {
+                    setPingFailure(
+                        state: &state,
+                        sourceNodeID: sourceNodeID,
+                        eventCode: .pingRejectedInvalidSourceConfiguration,
+                        faultCategory: .networkConfiguration,
+                        faultCode: "sourceConfigurationMissing",
+                        message: "Configure source IP and subnet before pinging",
+                        detail: "sourceConfigurationMissing"
+                    )
+                    return
+                }
+
+                let targetNodeIDs = state.runtimeDeviceConfigurations
+                    .filter { $0.value.ipAddress == targetIPAddress }
+                    .map(\.key)
+                    .sorted { $0.uuidString < $1.uuidString }
+
+                guard targetNodeIDs.count == 1, let targetNodeID = targetNodeIDs.first else {
+                    setPingFailure(
+                        state: &state,
+                        sourceNodeID: sourceNodeID,
+                        eventCode: .pingRejectedUnknownTarget,
+                        faultCategory: .networkRouting,
+                        faultCode: "pingTargetUnknown",
+                        message: "No unique node is configured with target \(targetIPAddress)",
+                        detail: "pingTargetUnknown"
+                    )
+                    return
+                }
+
+                guard state.graph.containsNode(id: targetNodeID),
+                      let targetConfiguration = state.runtimeDeviceConfigurations[targetNodeID] else {
+                    setPingFailure(
+                        state: &state,
+                        sourceNodeID: sourceNodeID,
+                        eventCode: .pingRejectedUnknownTarget,
+                        faultCategory: .networkRouting,
+                        faultCode: "pingTargetUnknown",
+                        message: "Target node is unavailable in topology",
+                        detail: "pingTargetUnknown"
+                    )
+                    return
+                }
+
+                guard areInSameSubnet(source: sourceConfiguration, target: targetConfiguration) else {
+                    setPingFailure(
+                        state: &state,
+                        sourceNodeID: sourceNodeID,
+                        eventCode: .pingRejectedSubnetMismatch,
+                        faultCategory: .networkRouting,
+                        faultCode: "pingSubnetMismatch",
+                        message: "Source and target are not in the same subnet",
+                        detail: "pingSubnetMismatch"
+                    )
+                    return
+                }
+
+                guard state.graph.isReachable(from: sourceNodeID, to: targetNodeID) else {
+                    setPingFailure(
+                        state: &state,
+                        sourceNodeID: sourceNodeID,
+                        eventCode: .pingRejectedTopologyUnreachable,
+                        faultCategory: .networkRouting,
+                        faultCode: "pingTargetUnreachable",
+                        message: "No topology path exists between source and target",
+                        detail: "pingTargetUnreachable"
+                    )
+                    return
+                }
+
+                state.lastPingFault = nil
+                state.lastRuntimeFault = nil
+
+                let successDetail = "source=\(sourceNodeID.uuidString),target=\(targetNodeID.uuidString),targetIP=\(targetIPAddress)"
+                state.lastPingEvent = TopologyRuntimeEvent(code: .pingSucceeded, detail: successDetail)
+                recordRuntimeEvent(state: &state, code: .pingSucceeded, detail: successDetail)
+                appendConsoleLine(
+                    state: &state,
+                    nodeID: sourceNodeID,
+                    line: "Ping to \(targetIPAddress) succeeded"
+                )
+            }
+
         case let .moveSelectedNodes(delta):
             guard let delta else {
                 state.lastValidationError = .malformedActionPayload
@@ -294,11 +520,153 @@ enum TopologyEditorReducer {
         )
     }
 
+    private static func setMalformedPingPayload(state: inout TopologyEditorState, detail: String) {
+        let fault = TopologyRuntimeFault(
+            category: .commandValidation,
+            code: "malformedPingCommand",
+            message: detail
+        )
+        state.lastPingFault = fault
+        state.lastRuntimeFault = fault
+        state.lastPingEvent = TopologyRuntimeEvent(code: .pingRejectedMalformedCommand, detail: detail)
+        recordRuntimeEvent(state: &state, code: .pingRejectedMalformedCommand, detail: detail)
+    }
+
+    private static func setPingFailure(
+        state: inout TopologyEditorState,
+        sourceNodeID: UUID,
+        eventCode: TopologyRuntimeEventCode,
+        faultCategory: TopologyRuntimeFaultCategory,
+        faultCode: String,
+        message: String,
+        detail: String
+    ) {
+        let fault = TopologyRuntimeFault(
+            category: faultCategory,
+            code: faultCode,
+            message: message
+        )
+        state.lastPingFault = fault
+        state.lastRuntimeFault = fault
+        state.lastPingEvent = TopologyRuntimeEvent(code: eventCode, detail: detail)
+        recordRuntimeEvent(state: &state, code: eventCode, detail: detail)
+        appendConsoleLine(state: &state, nodeID: sourceNodeID, line: "Ping failed: \(faultCode) — \(message)")
+    }
+
+    private static func appendConsoleLine(state: inout TopologyEditorState, nodeID: UUID, line: String) {
+        var entries = state.runtimeConsoleEntriesByNodeID[nodeID] ?? []
+        entries.append(line)
+
+        if entries.count > maxRuntimeConsoleEntriesPerDevice {
+            entries.removeFirst(entries.count - maxRuntimeConsoleEntriesPerDevice)
+        }
+
+        state.runtimeConsoleEntriesByNodeID[nodeID] = entries
+    }
+
     private static func normalizedRuntimeValue(_ value: String?) -> String? {
         guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else {
             return nil
         }
         return trimmed
+    }
+
+    private static func parsePingCommand(_ command: String) -> Result<String, String> {
+        let parts = command.split(whereSeparator: { $0.isWhitespace }).map(String.init)
+
+        guard parts.count == 2, parts[0].lowercased() == "ping" else {
+            return .failure("Command must follow deterministic format: ping <target-ipv4>")
+        }
+
+        guard let normalizedTargetAddress = normalizedIPv4Address(parts[1]) else {
+            return .failure("Ping target must be a valid IPv4 address")
+        }
+
+        return .success(normalizedTargetAddress)
+    }
+
+    private static func normalizedIPv4Address(_ value: String?) -> String? {
+        guard let octets = parseIPv4Octets(value) else {
+            return nil
+        }
+
+        return octets.map(String.init).joined(separator: ".")
+    }
+
+    private static func normalizedSubnetMask(_ value: String?) -> String? {
+        guard let octets = parseIPv4Octets(value), isContiguousSubnetMask(octets) else {
+            return nil
+        }
+
+        return octets.map(String.init).joined(separator: ".")
+    }
+
+    private static func parseIPv4Octets(_ value: String?) -> [UInt8]? {
+        guard let normalized = normalizedRuntimeValue(value) else {
+            return nil
+        }
+
+        let segments = normalized.split(separator: ".", omittingEmptySubsequences: false)
+        guard segments.count == 4 else {
+            return nil
+        }
+
+        var octets: [UInt8] = []
+        octets.reserveCapacity(4)
+
+        for segment in segments {
+            let text = String(segment)
+            guard !text.isEmpty, text.allSatisfy({ $0.isNumber }), let octet = UInt8(text) else {
+                return nil
+            }
+            octets.append(octet)
+        }
+
+        return octets
+    }
+
+    private static func isContiguousSubnetMask(_ octets: [UInt8]) -> Bool {
+        guard octets.count == 4 else {
+            return false
+        }
+
+        let mask = octets.reduce(UInt32(0)) { partial, octet in
+            (partial << 8) | UInt32(octet)
+        }
+
+        let inverted = ~mask
+        return (inverted & (inverted &+ 1)) == 0
+    }
+
+    private static func networkPrefix(ipAddress: String, subnetMask: String) -> UInt32? {
+        guard
+            let ipOctets = parseIPv4Octets(ipAddress),
+            let subnetOctets = parseIPv4Octets(subnetMask)
+        else {
+            return nil
+        }
+
+        let ip = ipOctets.reduce(UInt32(0)) { ($0 << 8) | UInt32($1) }
+        let mask = subnetOctets.reduce(UInt32(0)) { ($0 << 8) | UInt32($1) }
+        return ip & mask
+    }
+
+    private static func areInSameSubnet(
+        source: TopologyRuntimeDeviceConfiguration,
+        target: TopologyRuntimeDeviceConfiguration
+    ) -> Bool {
+        guard source.subnetMask == target.subnetMask else {
+            return false
+        }
+
+        guard
+            let sourceNetwork = networkPrefix(ipAddress: source.ipAddress, subnetMask: source.subnetMask),
+            let targetNetwork = networkPrefix(ipAddress: target.ipAddress, subnetMask: target.subnetMask)
+        else {
+            return false
+        }
+
+        return sourceNetwork == targetNetwork
     }
 
     private static func areCompatibleEndpoints(_ sourceNode: TopologyNode, _ targetNode: TopologyNode) -> Bool {
@@ -387,6 +755,14 @@ private extension TopologyEditorAction {
             return "simulationTick"
         case .simulationFault:
             return "simulationFault"
+        case .openRuntimeDevice:
+            return "openRuntimeDevice"
+        case .closeRuntimeDevice:
+            return "closeRuntimeDevice"
+        case .saveRuntimeDeviceIP:
+            return "saveRuntimeDeviceIP"
+        case .executePing:
+            return "executePing"
         case .moveSelectedNodes:
             return "moveSelectedNodes"
         case .panCanvas:

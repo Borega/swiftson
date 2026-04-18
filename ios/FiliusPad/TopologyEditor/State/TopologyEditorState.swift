@@ -26,6 +26,18 @@ enum TopologyRuntimeEventCode: String, Equatable {
     case simulationTickIgnoredWhileStopped
     case simulationFaultReported
     case simulationFaultRejectedMalformedPayload
+    case runtimeDeviceOpened
+    case runtimeDeviceCloseIgnoredAlreadyClosed
+    case runtimeDeviceClosed
+    case runtimeDeviceIPSaved
+    case runtimeDeviceIPRejectedInvalidConfiguration
+    case pingSucceeded
+    case pingRejectedSimulationStopped
+    case pingRejectedMalformedCommand
+    case pingRejectedUnknownTarget
+    case pingRejectedInvalidSourceConfiguration
+    case pingRejectedTopologyUnreachable
+    case pingRejectedSubnetMismatch
 }
 
 struct TopologyRuntimeEvent: Equatable {
@@ -36,12 +48,20 @@ struct TopologyRuntimeEvent: Equatable {
 enum TopologyRuntimeFaultCategory: String, Equatable {
     case runtimeFault
     case malformedRuntimePayload
+    case commandValidation
+    case networkConfiguration
+    case networkRouting
 }
 
 struct TopologyRuntimeFault: Equatable {
     let category: TopologyRuntimeFaultCategory
     let code: String
     let message: String
+}
+
+struct TopologyRuntimeDeviceConfiguration: Equatable {
+    let ipAddress: String
+    let subnetMask: String
 }
 
 struct TopologyEditorState: Equatable {
@@ -53,6 +73,11 @@ struct TopologyEditorState: Equatable {
     var simulationTick: UInt64 = 0
     var lastRuntimeEvent: TopologyRuntimeEvent?
     var lastRuntimeFault: TopologyRuntimeFault?
+    var openedRuntimeDeviceID: UUID?
+    var runtimeDeviceConfigurations: [UUID: TopologyRuntimeDeviceConfiguration] = [:]
+    var runtimeConsoleEntriesByNodeID: [UUID: [String]] = [:]
+    var lastPingEvent: TopologyRuntimeEvent?
+    var lastPingFault: TopologyRuntimeFault?
     var viewport = ViewportTransform.identity
     var lastValidationError: TopologyValidationErrorCode?
     var lastAction: String?
@@ -72,6 +97,10 @@ enum TopologyEditorAction: Equatable {
     case stopSimulation
     case simulationTick(step: UInt64?)
     case simulationFault(code: String?, message: String?)
+    case openRuntimeDevice(nodeID: UUID?)
+    case closeRuntimeDevice
+    case saveRuntimeDeviceIP(nodeID: UUID?, ipAddress: String?, subnetMask: String?)
+    case executePing(nodeID: UUID?, command: String?)
     case moveSelectedNodes(delta: CGSize?)
     case panCanvas(delta: CGSize?)
     case zoomCanvas(scaleDelta: CGFloat?, anchor: CGPoint?)

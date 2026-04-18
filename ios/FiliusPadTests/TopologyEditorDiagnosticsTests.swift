@@ -157,6 +157,69 @@ final class TopologyEditorDiagnosticsTests: XCTestCase {
         XCTAssertEqual(state.lastAction, "startSimulation")
     }
 
+    func testPingMalformedCommandExposesInspectableFaultAndActionMetadata() {
+        var state = TopologyEditorState()
+
+        let sourceNodeID = addNode(kind: .pc, at: CGPoint(x: 20, y: 20), to: &state)
+        saveRuntimeIP(nodeID: sourceNodeID, ipAddress: "192.168.0.10", subnetMask: "255.255.255.0", state: &state)
+
+        TopologyEditorReducer.reduce(state: &state, action: .startSimulation)
+        TopologyEditorReducer.reduce(state: &state, action: .executePing(nodeID: sourceNodeID, command: "ping"))
+
+        XCTAssertEqual(state.lastPingEvent?.code, .pingRejectedMalformedCommand)
+        XCTAssertEqual(state.lastPingEvent?.detail, "malformedPingCommand")
+        XCTAssertEqual(state.lastPingFault?.category, .commandValidation)
+        XCTAssertEqual(state.lastPingFault?.code, "malformedPingCommand")
+        XCTAssertEqual(state.lastRuntimeEvent?.code, .pingRejectedMalformedCommand)
+        XCTAssertEqual(state.lastAction, "executePing")
+        XCTAssertTrue(state.runtimeConsoleEntriesByNodeID[sourceNodeID]?.last?.contains("malformedPingCommand") ?? false)
+    }
+
+    func testPingTopologyUnreachableExposesRoutingFailureWithoutMutatingIPAddressConfig() {
+        var state = TopologyEditorState()
+
+        let sourceNodeID = addNode(kind: .pc, at: CGPoint(x: 20, y: 20), to: &state)
+        let targetNodeID = addNode(kind: .pc, at: CGPoint(x: 300, y: 20), to: &state)
+        saveRuntimeIP(nodeID: sourceNodeID, ipAddress: "192.168.0.10", subnetMask: "255.255.255.0", state: &state)
+        saveRuntimeIP(nodeID: targetNodeID, ipAddress: "192.168.0.20", subnetMask: "255.255.255.0", state: &state)
+        let sourceSnapshot = state.runtimeDeviceConfigurations[sourceNodeID]
+
+        TopologyEditorReducer.reduce(state: &state, action: .startSimulation)
+        TopologyEditorReducer.reduce(state: &state, action: .executePing(nodeID: sourceNodeID, command: "ping 192.168.0.20"))
+
+        XCTAssertEqual(state.lastPingEvent?.code, .pingRejectedTopologyUnreachable)
+        XCTAssertEqual(state.lastPingEvent?.detail, "pingTargetUnreachable")
+        XCTAssertEqual(state.lastPingFault?.category, .networkRouting)
+        XCTAssertEqual(state.lastPingFault?.code, "pingTargetUnreachable")
+        XCTAssertEqual(state.runtimeDeviceConfigurations[sourceNodeID], sourceSnapshot)
+    }
+
+    func testPingSuccessClearsPreviousPingFaultAndReportsAttributedDetail() {
+        var state = TopologyEditorState()
+
+        let sourceNodeID = addNode(kind: .pc, at: CGPoint(x: 20, y: 20), to: &state)
+        let targetNodeID = addNode(kind: .pc, at: CGPoint(x: 300, y: 20), to: &state)
+        let switchNodeID = addNode(kind: .networkSwitch, at: CGPoint(x: 160, y: 100), to: &state)
+
+        connect(sourceNodeID, switchNodeID, state: &state)
+        connect(targetNodeID, switchNodeID, state: &state)
+
+        saveRuntimeIP(nodeID: sourceNodeID, ipAddress: "192.168.0.10", subnetMask: "255.255.255.0", state: &state)
+        saveRuntimeIP(nodeID: targetNodeID, ipAddress: "192.168.0.20", subnetMask: "255.255.255.0", state: &state)
+
+        TopologyEditorReducer.reduce(state: &state, action: .startSimulation)
+        TopologyEditorReducer.reduce(state: &state, action: .executePing(nodeID: sourceNodeID, command: "ping"))
+        XCTAssertEqual(state.lastPingEvent?.code, .pingRejectedMalformedCommand)
+
+        TopologyEditorReducer.reduce(state: &state, action: .executePing(nodeID: sourceNodeID, command: "ping 192.168.0.20"))
+
+        XCTAssertEqual(state.lastPingEvent?.code, .pingSucceeded)
+        XCTAssertTrue(state.lastPingEvent?.detail?.contains("targetIP=192.168.0.20") ?? false)
+        XCTAssertNil(state.lastPingFault)
+        XCTAssertNil(state.lastRuntimeFault)
+        XCTAssertEqual(state.lastRuntimeEvent?.code, .pingSucceeded)
+    }
+
     // MARK: - Helpers
 
     @discardableResult
@@ -170,5 +233,19 @@ final class TopologyEditorDiagnosticsTests: XCTestCase {
         TopologyEditorReducer.reduce(state: &state, action: .startConnection(nodeID: sourceNodeID, portID: nil))
         TopologyEditorReducer.reduce(state: &state, action: .completeConnection(nodeID: targetNodeID, portID: nil))
         XCTAssertNil(state.lastValidationError)
+    }
+
+    private func saveRuntimeIP(
+        nodeID: UUID,
+        ipAddress: String,
+        subnetMask: String,
+        state: inout TopologyEditorState
+    ) {
+        TopologyEditorReducer.reduce(
+            state: &state,
+            action: .saveRuntimeDeviceIP(nodeID: nodeID, ipAddress: ipAddress, subnetMask: subnetMask)
+        )
+        XCTAssertNil(state.lastRuntimeFault)
+        XCTAssertEqual(state.lastRuntimeEvent?.code, .runtimeDeviceIPSaved)
     }
 }
