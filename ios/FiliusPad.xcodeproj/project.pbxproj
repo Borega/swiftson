@@ -31,6 +31,8 @@
 		A13200000000000000000001 /* TopologyProjectSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21200000000000000000022 /* TopologyProjectSnapshot.swift */; };
 		A13300000000000000000001 /* TopologyProjectStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21200000000000000000023 /* TopologyProjectStore.swift */; };
 		A13400000000000000000001 /* TopologyProjectPersistenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21200000000000000000024 /* TopologyProjectPersistenceTests.swift */; };
+		A13500000000000000000001 /* TopologyProjectPersistenceWorkflowUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21200000000000000000025 /* TopologyProjectPersistenceWorkflowUITests.swift */; };
+		A13600000000000000000001 /* TopologyIntegratedAcceptanceUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21200000000000000000026 /* TopologyIntegratedAcceptanceUITests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -75,6 +77,8 @@
 		A21200000000000000000022 /* TopologyProjectSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopologyProjectSnapshot.swift; sourceTree = "<group>"; };
 		A21200000000000000000023 /* TopologyProjectStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopologyProjectStore.swift; sourceTree = "<group>"; };
 		A21200000000000000000024 /* TopologyProjectPersistenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopologyProjectPersistenceTests.swift; sourceTree = "<group>"; };
+		A21200000000000000000025 /* TopologyProjectPersistenceWorkflowUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopologyProjectPersistenceWorkflowUITests.swift; sourceTree = "<group>"; };
+		A21200000000000000000026 /* TopologyIntegratedAcceptanceUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopologyIntegratedAcceptanceUITests.swift; sourceTree = "<group>"; };
 		A21300000000000000000001 /* FiliusPad.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FiliusPad.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A21300000000000000000002 /* FiliusPadTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FiliusPadTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A21300000000000000000003 /* FiliusPadUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FiliusPadUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -198,6 +202,8 @@
 				A21200000000000000000017 /* TopologyEditorTouchFlowUITests.swift */,
 				A21200000000000000000018 /* TopologySimulationRuntimeUITests.swift */,
 				A21200000000000000000020 /* TopologyRuntimePingWorkflowUITests.swift */,
+				A21200000000000000000025 /* TopologyProjectPersistenceWorkflowUITests.swift */,
+				A21200000000000000000026 /* TopologyIntegratedAcceptanceUITests.swift */,
 			);
 		};
 		A31900000000000000000001 /* Products */ = {
@@ -375,6 +381,8 @@
 				A12700000000000000000001 /* TopologyEditorTouchFlowUITests.swift in Sources */,
 				A12800000000000000000001 /* TopologySimulationRuntimeUITests.swift in Sources */,
 				A13000000000000000000001 /* TopologyRuntimePingWorkflowUITests.swift in Sources */,
+				A13500000000000000000001 /* TopologyProjectPersistenceWorkflowUITests.swift in Sources */,
+				A13600000000000000000001 /* TopologyIntegratedAcceptanceUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -590,6 +598,12 @@
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = A81100000000000000000001 /* Project object */;
+}
+onName = Release;
 		};
 /* End XCConfigurationList section */
 	};

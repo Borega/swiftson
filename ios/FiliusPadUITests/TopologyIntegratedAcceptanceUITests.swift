@@ -1,0 +1,459 @@
+import CoreGraphics
+import Foundation
+import XCTest
+
+final class TopologyIntegratedAcceptanceUITests: XCTestCase {
+    private enum CanvasPoint {
+        static let pc1 = CGVector(dx: 0.12, dy: 0.20)
+        static let pc2 = CGVector(dx: 0.22, dy: 0.20)
+        static let pc3 = CGVector(dx: 0.32, dy: 0.20)
+        static let pc4 = CGVector(dx: 0.62, dy: 0.20)
+        static let pc5 = CGVector(dx: 0.72, dy: 0.20)
+        static let pc6 = CGVector(dx: 0.82, dy: 0.20)
+
+        static let switch1 = CGVector(dx: 0.22, dy: 0.55)
+        static let switch2 = CGVector(dx: 0.42, dy: 0.55)
+        static let switch3 = CGVector(dx: 0.62, dy: 0.55)
+        static let switch4 = CGVector(dx: 0.78, dy: 0.55)
+    }
+
+    private var app: XCUIApplication!
+    private var autosaveFileURLs: [URL] = []
+
+    override func setUpWithError() throws {
+        continueAfterFailure = false
+    }
+
+    override func tearDownWithError() throws {
+        app?.terminate()
+        app = nil
+
+        for fileURL in autosaveFileURLs {
+            try? FileManager.default.removeItem(at: fileURL)
+        }
+        autosaveFileURLs.removeAll()
+    }
+
+    func testIntegratedClassroomFlowWithDiagnosticsAndRelaunchContinuity() {
+        let autosaveURL = makeAutosaveURL()
+
+        app = launchApp(
+            autosaveURL: autosaveURL,
+            clearExistingAutosave: true,
+            additionalArguments: ["-ui-testing"]
+        )
+
+        seedTenNodeClassroomTopology()
+
+        assertDiagnosticEquals("debug.nodeCount", expected: "Nodes: 10")
+        assertDiagnosticEquals("debug.linkCount", expected: "Links: 9")
+
+        tapButton("runtime.control.start")
+        waitForDiagnosticContains("debug.simulationPhase", expectedSubstring: "running", timeout: 3)
+        assertRuntimeControlState(startEnabled: false, stopEnabled: true)
+
+        assertRuntimeControlsRemainResponsiveAtScale()
+
+        // Boundary condition: repeated runtime sheet open/close under ~10-node load.
+        openRuntimeDevice(at: CanvasPoint.pc1)
+        closeRuntimeDeviceSheet()
+        openRuntimeDevice(at: CanvasPoint.pc2)
+        closeRuntimeDeviceSheet()
+        openRuntimeDevice(at: CanvasPoint.pc3)
+        closeRuntimeDeviceSheet()
+
+        openRuntimeDevice(at: CanvasPoint.pc1)
+        saveRuntimeConfiguration(ip: "10.1.0.10", subnet: "255.255.255.0")
+        closeRuntimeDeviceSheet()
+
+        openRuntimeDevice(at: CanvasPoint.pc2)
+        saveRuntimeConfiguration(ip: "10.1.0.11", subnet: "255.255.255.0")
+        closeRuntimeDeviceSheet()
+
+        openRuntimeDevice(at: CanvasPoint.pc1)
+
+        executeCommand("ping 10.1.0.11")
+        waitForDiagnosticContains("debug.lastPingEvent", expectedSubstring: "pingSucceeded", timeout: 3)
+        assertDiagnosticContains("debug.lastPingFault", expectedSubstring: "none")
+        assertAnyConsoleLineContains("Ping to 10.1.0.11 succeeded")
+
+        // Negative test: invalid/unreachable target path must expose deterministic failure diagnostics.
+        executeCommand("ping 10.1.0.250")
+        waitForDiagnosticContains("debug.lastPingEvent", expectedSubstring: "pingRejectedUnknownTarget", timeout: 3)
+        assertDiagnosticContains("debug.lastPingFault", expectedSubstring: "pingTargetUnknown")
+        assertAnyConsoleLineContains("Ping failed: pingTargetUnknown")
+
+        // Negative test: malformed command must expose deterministic malformed diagnostics.
+        executeCommand("ping")
+        waitForDiagnosticContains("debug.lastPingEvent", expectedSubstring: "pingRejectedMalformedCommand", timeout: 3)
+        assertDiagnosticContains("debug.lastPingFault", expectedSubstring: "malformedPingCommand")
+        assertAnyConsoleLineContains("Ping failed: malformedPingCommand")
+
+        assertRuntimeConsoleCount(atLeast: 6)
+        closeRuntimeDeviceSheet()
+
+        waitForDiagnosticNotContaining("debug.lastPersistenceSaveAt", forbiddenSubstring: "none", timeout: 6)
+        let lastPersistenceSaveMarker = label(for: "debug.lastPersistenceSaveAt")
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: autosaveURL.path),
+            "Autosave fixture path should exist after integrated edits and runtime configuration"
+        )
+
+        app.terminate()
+
+        app = launchApp(
+            autosaveURL: autosaveURL,
+            clearExistingAutosave: false,
+            additionalArguments: ["-ui-testing"]
+        )
+
+        assertDiagnosticEquals("debug.nodeCount", expected: "Nodes: 10")
+        waitForDiagnosticNotContaining("debug.lastPersistenceLoadAt", forbiddenSubstring: "none", timeout: 4)
+        assertDiagnosticContains("debug.lastPersistenceLoadAt", expectedSubstring: "T")
+        assertDiagnosticContains("debug.lastPersistenceError", expectedSubstring: "none")
+        XCTAssertEqual(
+            label(for: "debug.lastPersistenceSaveAt"),
+            lastPersistenceSaveMarker,
+            "Relaunch should preserve last persistence save diagnostics from autosave snapshot"
+        )
+
+        tapButton("runtime.control.start")
+        waitForDiagnosticContains("debug.simulationPhase", expectedSubstring: "running", timeout: 3)
+
+        openRuntimeDevice(at: CanvasPoint.pc1)
+        assertTextFieldValue("runtime.device.ip", expected: "10.1.0.10")
+        assertTextFieldValue("runtime.device.subnet", expected: "255.255.255.0")
+
+        executeCommand("ping 10.1.0.11")
+        waitForDiagnosticContains("debug.lastPingEvent", expectedSubstring: "pingSucceeded", timeout: 3)
+        assertDiagnosticContains("debug.lastPingFault", expectedSubstring: "none")
+        assertAnyConsoleLineContains("Ping to 10.1.0.11 succeeded")
+        assertRuntimeConsoleCount(atLeast: 2)
+
+        closeRuntimeDeviceSheet()
+    }
+
+    // MARK: - Helpers
+
+    @discardableResult
+    private func launchApp(
+        autosaveURL: URL,
+        clearExistingAutosave: Bool,
+        additionalArguments: [String]
+    ) -> XCUIApplication {
+        if clearExistingAutosave, FileManager.default.fileExists(atPath: autosaveURL.path) {
+            try? FileManager.default.removeItem(at: autosaveURL)
+        }
+
+        if !autosaveFileURLs.contains(autosaveURL) {
+            autosaveFileURLs.append(autosaveURL)
+        }
+
+        let app = XCUIApplication()
+        app.launchArguments = additionalArguments
+        app.launchEnvironment["FILIUSPAD_AUTOSAVE_FILE"] = autosaveURL.path
+        app.launch()
+
+        _ = requireElement(app.otherElements["canvas.surface"], named: "canvas.surface")
+        _ = requireElement(app.buttons["palette.tool.place.pc"], named: "palette.tool.place.pc")
+        _ = requireElement(app.buttons["palette.tool.place.switch"], named: "palette.tool.place.switch")
+        _ = requireElement(app.buttons["palette.tool.connect"], named: "palette.tool.connect")
+        _ = requireElement(app.buttons["runtime.control.start"], named: "runtime.control.start")
+        _ = requireElement(app.buttons["runtime.control.stop"], named: "runtime.control.stop")
+        _ = requireElement(app.staticTexts["debug.nodeCount"], named: "debug.nodeCount")
+        _ = requireElement(app.staticTexts["debug.linkCount"], named: "debug.linkCount")
+        _ = requireElement(app.staticTexts["debug.simulationPhase"], named: "debug.simulationPhase")
+        _ = requireElement(app.staticTexts["debug.simulationTick"], named: "debug.simulationTick")
+        _ = requireElement(app.staticTexts["debug.lastPingEvent"], named: "debug.lastPingEvent")
+        _ = requireElement(app.staticTexts["debug.lastPingFault"], named: "debug.lastPingFault")
+        _ = requireElement(app.staticTexts["debug.runtimeConsoleCount"], named: "debug.runtimeConsoleCount")
+        _ = requireElement(app.staticTexts["debug.lastPersistenceSaveAt"], named: "debug.lastPersistenceSaveAt")
+        _ = requireElement(app.staticTexts["debug.lastPersistenceLoadAt"], named: "debug.lastPersistenceLoadAt")
+        _ = requireElement(app.staticTexts["debug.lastPersistenceError"], named: "debug.lastPersistenceError")
+        _ = requireElement(app.staticTexts["debug.openedRuntimeDevice"], named: "debug.openedRuntimeDevice")
+
+        return app
+    }
+
+    private func seedTenNodeClassroomTopology() {
+        tapButton("palette.tool.place.pc")
+        tapCanvas(at: CanvasPoint.pc1)
+        tapButton("palette.tool.place.pc")
+        tapCanvas(at: CanvasPoint.pc2)
+        tapButton("palette.tool.place.pc")
+        tapCanvas(at: CanvasPoint.pc3)
+        tapButton("palette.tool.place.pc")
+        tapCanvas(at: CanvasPoint.pc4)
+        tapButton("palette.tool.place.pc")
+        tapCanvas(at: CanvasPoint.pc5)
+        tapButton("palette.tool.place.pc")
+        tapCanvas(at: CanvasPoint.pc6)
+
+        tapButton("palette.tool.place.switch")
+        tapCanvas(at: CanvasPoint.switch1)
+        tapButton("palette.tool.place.switch")
+        tapCanvas(at: CanvasPoint.switch2)
+        tapButton("palette.tool.place.switch")
+        tapCanvas(at: CanvasPoint.switch3)
+        tapButton("palette.tool.place.switch")
+        tapCanvas(at: CanvasPoint.switch4)
+
+        tapButton("palette.tool.connect")
+        connectNodes(from: CanvasPoint.pc1, to: CanvasPoint.switch1)
+        connectNodes(from: CanvasPoint.pc2, to: CanvasPoint.switch1)
+        connectNodes(from: CanvasPoint.pc3, to: CanvasPoint.switch1)
+        connectNodes(from: CanvasPoint.pc4, to: CanvasPoint.switch4)
+        connectNodes(from: CanvasPoint.pc5, to: CanvasPoint.switch4)
+        connectNodes(from: CanvasPoint.pc6, to: CanvasPoint.switch4)
+        connectNodes(from: CanvasPoint.switch1, to: CanvasPoint.switch2)
+        connectNodes(from: CanvasPoint.switch2, to: CanvasPoint.switch3)
+        connectNodes(from: CanvasPoint.switch3, to: CanvasPoint.switch4)
+    }
+
+    private func assertRuntimeControlsRemainResponsiveAtScale() {
+        let runningTick = simulationTickValue()
+        let advancedTick = waitForTickAdvance(from: runningTick, timeout: 2)
+        XCTAssertGreaterThan(advancedTick, runningTick, "Simulation tick should advance while running at ~10-node scale")
+
+        tapButton("runtime.control.stop")
+        waitForDiagnosticContains("debug.simulationPhase", expectedSubstring: "stopped", timeout: 3)
+        assertRuntimeControlState(startEnabled: true, stopEnabled: false)
+
+        let stoppedTick = simulationTickValue()
+        pause(seconds: 0.5)
+        XCTAssertEqual(simulationTickValue(), stoppedTick, "Simulation tick should remain frozen while stopped")
+
+        tapButton("runtime.control.start")
+        waitForDiagnosticContains("debug.simulationPhase", expectedSubstring: "running", timeout: 3)
+        assertRuntimeControlState(startEnabled: false, stopEnabled: true)
+
+        let resumedTick = waitForTickAdvance(from: stoppedTick, timeout: 2)
+        XCTAssertGreaterThan(resumedTick, stoppedTick, "Simulation tick should resume after restarting runtime")
+    }
+
+    private func connectNodes(from source: CGVector, to destination: CGVector) {
+        tapCanvas(at: source)
+        tapCanvas(at: destination)
+    }
+
+    private func openRuntimeDevice(at normalizedOffset: CGVector) {
+        tapCanvas(at: normalizedOffset)
+        _ = requireElement(app.otherElements["runtime.device.sheet"], named: "runtime.device.sheet")
+
+        XCTAssertFalse(
+            label(for: "debug.openedRuntimeDevice").hasSuffix("none"),
+            "Opening runtime device sheet must update debug.openedRuntimeDevice"
+        )
+    }
+
+    private func closeRuntimeDeviceSheet() {
+        tapButton("runtime.device.close")
+        waitForElementToDisappear(app.otherElements["runtime.device.sheet"], timeout: 3, identifier: "runtime.device.sheet")
+        assertDiagnosticContains("debug.openedRuntimeDevice", expectedSubstring: "none")
+    }
+
+    private func saveRuntimeConfiguration(ip: String, subnet: String) {
+        replaceTextField("runtime.device.ip", with: ip)
+        replaceTextField("runtime.device.subnet", with: subnet)
+        tapButton("runtime.device.save")
+    }
+
+    private func executeCommand(_ command: String) {
+        replaceTextField("runtime.device.command", with: command)
+        tapButton("runtime.device.execute")
+    }
+
+    private func assertTextFieldValue(_ identifier: String, expected: String) {
+        let field = requireElement(app.textFields[identifier], named: identifier)
+        let actual = (field.value as? String) ?? ""
+        XCTAssertEqual(actual, expected, "Expected text field '\(identifier)' to contain restored value")
+    }
+
+    private func assertRuntimeControlState(startEnabled: Bool, stopEnabled: Bool) {
+        XCTAssertEqual(
+            requireElement(app.buttons["runtime.control.start"], named: "runtime.control.start").isEnabled,
+            startEnabled,
+            "runtime.control.start enabled state mismatch"
+        )
+        XCTAssertEqual(
+            requireElement(app.buttons["runtime.control.stop"], named: "runtime.control.stop").isEnabled,
+            stopEnabled,
+            "runtime.control.stop enabled state mismatch"
+        )
+    }
+
+    private func assertRuntimeConsoleCount(atLeast minimum: Int) {
+        let count = diagnosticIntegerValue(
+            for: "debug.runtimeConsoleCount",
+            prefix: "Opened runtime console entries: "
+        )
+
+        XCTAssertNotNil(count, "Expected debug.runtimeConsoleCount to expose an integer payload")
+        XCTAssertGreaterThanOrEqual(
+            count ?? 0,
+            minimum,
+            "Expected debug.runtimeConsoleCount to be at least \(minimum)"
+        )
+    }
+
+    private func assertAnyConsoleLineContains(_ expectedText: String) {
+        let predicate = NSPredicate(format: "identifier BEGINSWITH %@", "runtime.device.console.line.")
+        let lines = app.staticTexts.matching(predicate)
+        let deadline = Date().addingTimeInterval(3)
+
+        while Date() < deadline {
+            for index in 0..<lines.count {
+                let line = lines.element(boundBy: index)
+                if line.exists, line.label.contains(expectedText) {
+                    return
+                }
+            }
+
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+
+        XCTFail("Expected runtime console to contain '\(expectedText)'")
+    }
+
+    private func waitForDiagnosticContains(
+        _ identifier: String,
+        expectedSubstring: String,
+        timeout: TimeInterval
+    ) {
+        let deadline = Date().addingTimeInterval(timeout)
+
+        while Date() < deadline {
+            if label(for: identifier).contains(expectedSubstring) {
+                return
+            }
+
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+
+        XCTFail("Timed out waiting for \(identifier) to contain '\(expectedSubstring)'")
+    }
+
+    private func waitForDiagnosticNotContaining(
+        _ identifier: String,
+        forbiddenSubstring: String,
+        timeout: TimeInterval
+    ) {
+        let deadline = Date().addingTimeInterval(timeout)
+
+        while Date() < deadline {
+            if !label(for: identifier).contains(forbiddenSubstring) {
+                return
+            }
+
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+
+        XCTFail("Timed out waiting for \(identifier) to stop containing '\(forbiddenSubstring)'")
+    }
+
+    private func waitForElementToDisappear(_ element: XCUIElement, timeout: TimeInterval, identifier: String) {
+        let deadline = Date().addingTimeInterval(timeout)
+
+        while Date() < deadline {
+            if !element.exists {
+                return
+            }
+
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+
+        XCTFail("Timed out waiting for '\(identifier)' to disappear")
+    }
+
+    private func simulationTickValue() -> UInt64 {
+        let labelText = label(for: "debug.simulationTick")
+            .replacingOccurrences(of: "Simulation tick: ", with: "")
+        return UInt64(labelText) ?? 0
+    }
+
+    private func waitForTickAdvance(from baseline: UInt64, timeout: TimeInterval) -> UInt64 {
+        let deadline = Date().addingTimeInterval(timeout)
+
+        while Date() < deadline {
+            let current = simulationTickValue()
+            if current > baseline {
+                return current
+            }
+
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+
+        return simulationTickValue()
+    }
+
+    private func diagnosticIntegerValue(for identifier: String, prefix: String) -> Int? {
+        let text = label(for: identifier)
+        let suffix = text.replacingOccurrences(of: prefix, with: "")
+        return Int(suffix)
+    }
+
+    private func pause(seconds: TimeInterval) {
+        RunLoop.current.run(until: Date().addingTimeInterval(seconds))
+    }
+
+    @discardableResult
+    private func requireElement(
+        _ element: XCUIElement,
+        named identifier: String,
+        timeout: TimeInterval = 5
+    ) -> XCUIElement {
+        XCTAssertTrue(
+            element.waitForExistence(timeout: timeout),
+            "Missing required accessibility identifier '\(identifier)'"
+        )
+        return element
+    }
+
+    private func tapButton(_ identifier: String) {
+        let button = requireElement(app.buttons[identifier], named: identifier)
+        XCTAssertTrue(button.isEnabled, "Button '\(identifier)' must be enabled before tapping")
+        button.tap()
+    }
+
+    private func tapCanvas(at normalizedOffset: CGVector) {
+        let canvas = requireElement(app.otherElements["canvas.surface"], named: "canvas.surface")
+        canvas.coordinate(withNormalizedOffset: normalizedOffset).tap()
+    }
+
+    private func replaceTextField(_ identifier: String, with text: String) {
+        let field = requireElement(app.textFields[identifier], named: identifier)
+        field.tap()
+
+        if let currentValue = field.value as? String, !currentValue.isEmpty {
+            field.press(forDuration: 0.5)
+            let selectAll = app.menuItems["Select All"]
+            if selectAll.waitForExistence(timeout: 1) {
+                selectAll.tap()
+            }
+            field.typeText(XCUIKeyboardKey.delete.rawValue)
+        }
+
+        field.typeText(text)
+    }
+
+    private func assertDiagnosticEquals(_ identifier: String, expected: String) {
+        XCTAssertEqual(label(for: identifier), expected)
+    }
+
+    private func assertDiagnosticContains(_ identifier: String, expectedSubstring: String) {
+        XCTAssertTrue(
+            label(for: identifier).contains(expectedSubstring),
+            "Expected '\(identifier)' to contain '\(expectedSubstring)' but found '\(label(for: identifier))'"
+        )
+    }
+
+    private func label(for identifier: String) -> String {
+        let element = requireElement(app.staticTexts[identifier], named: identifier)
+        return element.label
+    }
+
+    private func makeAutosaveURL() -> URL {
+        let filename = "TopologyIntegratedAcceptanceUITests-\(UUID().uuidString).json"
+        return FileManager.default.temporaryDirectory.appendingPathComponent(filename)
+    }
+}
