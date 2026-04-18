@@ -55,7 +55,7 @@ struct ViewportTransform: Equatable {
     }
 
     func panned(by delta: CGSize) -> ViewportTransform {
-        guard delta.isFinite else {
+        guard Self.isFiniteSize(delta) else {
             return self
         }
 
@@ -69,13 +69,13 @@ struct ViewportTransform: Equatable {
     }
 
     func zoomed(by scaleDelta: CGFloat, anchor: CGPoint?) -> ViewportTransform {
-        guard scaleDelta.isFiniteNumber, scaleDelta > 0 else {
+        guard Self.isFiniteScalar(scaleDelta), scaleDelta > 0 else {
             return self
         }
 
         let nextScale = Self.clampScale(scale * scaleDelta)
 
-        guard let anchor, anchor.isFinite else {
+        guard let anchor, Self.isFinitePoint(anchor) else {
             return ViewportTransform(offset: offset, scale: nextScale)
         }
 
@@ -93,7 +93,7 @@ struct ViewportTransform: Equatable {
         nodes: [TopologyNode],
         hitRadius: CGFloat = 28
     ) -> UUID? {
-        guard screenPoint.isFinite else {
+        guard Self.isFinitePoint(screenPoint) else {
             return nil
         }
 
@@ -109,22 +109,16 @@ struct ViewportTransform: Equatable {
             })?
             .id
     }
-}
 
-private extension CGSize {
-    var isFinite: Bool {
-        width.isFiniteNumber && height.isFiniteNumber
+    private static func isFiniteSize(_ value: CGSize) -> Bool {
+        isFiniteScalar(value.width) && isFiniteScalar(value.height)
     }
-}
 
-private extension CGPoint {
-    var isFinite: Bool {
-        x.isFiniteNumber && y.isFiniteNumber
+    private static func isFinitePoint(_ value: CGPoint) -> Bool {
+        isFiniteScalar(value.x) && isFiniteScalar(value.y)
     }
-}
 
-private extension CGFloat {
-    var isFiniteNumber: Bool {
-        isFinite && !isNaN
+    private static func isFiniteScalar(_ value: CGFloat) -> Bool {
+        value.isFinite && !value.isNaN
     }
 }

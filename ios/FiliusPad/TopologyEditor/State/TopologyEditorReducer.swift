@@ -481,7 +481,7 @@ enum TopologyEditorReducer {
             advancePersistenceRevision(state: &state)
 
         case let .panCanvas(delta):
-            guard let delta, delta.isFinite else {
+            guard let delta, isFiniteSize(delta) else {
                 state.lastValidationError = .malformedActionPayload
                 return
             }
@@ -490,12 +490,12 @@ enum TopologyEditorReducer {
             advancePersistenceRevision(state: &state)
 
         case let .zoomCanvas(scaleDelta, anchor):
-            guard let scaleDelta, scaleDelta.isFiniteNumber, scaleDelta > 0 else {
+            guard let scaleDelta, isFiniteScalar(scaleDelta), scaleDelta > 0 else {
                 state.lastValidationError = .malformedActionPayload
                 return
             }
 
-            if let anchor, !anchor.isFinite {
+            if let anchor, !isFinitePoint(anchor) {
                 state.lastValidationError = .malformedActionPayload
                 return
             }
@@ -724,23 +724,17 @@ enum TopologyEditorReducer {
 
         return !port.isOccupied && !graph.isPortConnected(nodeID: node.id, portID: sourcePortID)
     }
-}
 
-private extension CGSize {
-    var isFinite: Bool {
-        width.isFiniteNumber && height.isFiniteNumber
+    private static func isFiniteSize(_ value: CGSize) -> Bool {
+        isFiniteScalar(value.width) && isFiniteScalar(value.height)
     }
-}
 
-private extension CGPoint {
-    var isFinite: Bool {
-        x.isFiniteNumber && y.isFiniteNumber
+    private static func isFinitePoint(_ value: CGPoint) -> Bool {
+        isFiniteScalar(value.x) && isFiniteScalar(value.y)
     }
-}
 
-private extension CGFloat {
-    var isFiniteNumber: Bool {
-        isFinite && !isNaN
+    private static func isFiniteScalar(_ value: CGFloat) -> Bool {
+        value.isFinite && !value.isNaN
     }
 }
 
