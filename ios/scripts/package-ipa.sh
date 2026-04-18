@@ -9,12 +9,15 @@ ARCHIVE_PATH="${FILIUSPAD_ARCHIVE_PATH-$ROOT_DIR/build/archive/FiliusPad.xcarchi
 EXPORT_DIR="${FILIUSPAD_EXPORT_DIR-$ROOT_DIR/build/ipa}"
 IPA_OUTPUT_PATH="${FILIUSPAD_IPA_OUTPUT_PATH-$EXPORT_DIR/FiliusPad.ipa}"
 EXPORT_OPTIONS_PLIST="${FILIUSPAD_EXPORT_OPTIONS_PLIST-$EXPORT_DIR/ExportOptions.plist}"
+DERIVED_DATA_PATH="${FILIUSPAD_DERIVED_DATA_PATH-$ROOT_DIR/build/derived-data}"
+UNSIGNED_APP_PATH="${FILIUSPAD_UNSIGNED_APP_PATH-$DERIVED_DATA_PATH/Build/Products/${CONFIGURATION}-iphoneos/${SCHEME}.app}"
 DEVELOPMENT_TEAM="${FILIUSPAD_DEVELOPMENT_TEAM:-}"
 EXPORT_METHOD="${FILIUSPAD_EXPORT_METHOD:-}"
 CODE_SIGN_STYLE="${FILIUSPAD_CODE_SIGN_STYLE:-automatic}"
 BUNDLE_IDENTIFIER="${FILIUSPAD_BUNDLE_IDENTIFIER:-}"
 PROVISIONING_PROFILE_SPECIFIER="${FILIUSPAD_PROVISIONING_PROFILE_SPECIFIER:-}"
 PACKAGE_DRY_RUN="${FILIUSPAD_PACKAGE_DRY_RUN:-0}"
+UNSIGNED_MODE="${FILIUSPAD_UNSIGNED:-0}"
 ARCHIVE_TIMEOUT_SECONDS="${FILIUSPAD_ARCHIVE_TIMEOUT_SECONDS:-}"
 EXPORT_TIMEOUT_SECONDS="${FILIUSPAD_EXPORT_TIMEOUT_SECONDS:-}"
 
@@ -46,32 +49,52 @@ validate_configuration() {
       ;;
   esac
 
+  case "$UNSIGNED_MODE" in
+    0|1)
+      ;;
+    *)
+      fail_config "Invalid FILIUSPAD_UNSIGNED='${UNSIGNED_MODE}' (expected 0 or 1)" 89
+      ;;
+  esac
+
   validate_timeout "FILIUSPAD_ARCHIVE_TIMEOUT_SECONDS" "$ARCHIVE_TIMEOUT_SECONDS" 91
   validate_timeout "FILIUSPAD_EXPORT_TIMEOUT_SECONDS" "$EXPORT_TIMEOUT_SECONDS" 92
 
-  if [[ -z "$DEVELOPMENT_TEAM" ]]; then
-    fail_config "Missing required FILIUSPAD_DEVELOPMENT_TEAM" 93
+  if [[ "$UNSIGNED_MODE" == "0" ]]; then
+    if [[ -z "$DEVELOPMENT_TEAM" ]]; then
+      fail_config "Missing required FILIUSPAD_DEVELOPMENT_TEAM" 93
+    fi
+
+    if [[ -z "$EXPORT_METHOD" ]]; then
+      fail_config "Missing required FILIUSPAD_EXPORT_METHOD" 94
+    fi
+
+    case "$EXPORT_METHOD" in
+      app-store|app-store-connect|ad-hoc|enterprise|development)
+        ;;
+      *)
+        fail_config "Invalid FILIUSPAD_EXPORT_METHOD='${EXPORT_METHOD}' (allowed: app-store, app-store-connect, ad-hoc, enterprise, development)" 95
+        ;;
+    esac
+
+    case "$CODE_SIGN_STYLE" in
+      automatic|manual)
+        ;;
+      *)
+        fail_config "Invalid FILIUSPAD_CODE_SIGN_STYLE='${CODE_SIGN_STYLE}' (expected automatic or manual)" 96
+        ;;
+    esac
+
+    if [[ "$CODE_SIGN_STYLE" == "manual" ]]; then
+      if [[ -z "$PROVISIONING_PROFILE_SPECIFIER" ]]; then
+        fail_config "FILIUSPAD_PROVISIONING_PROFILE_SPECIFIER is required when FILIUSPAD_CODE_SIGN_STYLE=manual" 102
+      fi
+
+      if [[ -z "$BUNDLE_IDENTIFIER" ]]; then
+        fail_config "FILIUSPAD_BUNDLE_IDENTIFIER is required when FILIUSPAD_CODE_SIGN_STYLE=manual" 103
+      fi
+    fi
   fi
-
-  if [[ -z "$EXPORT_METHOD" ]]; then
-    fail_config "Missing required FILIUSPAD_EXPORT_METHOD" 94
-  fi
-
-  case "$EXPORT_METHOD" in
-    app-store|app-store-connect|ad-hoc|enterprise|development)
-      ;;
-    *)
-      fail_config "Invalid FILIUSPAD_EXPORT_METHOD='${EXPORT_METHOD}' (allowed: app-store, app-store-connect, ad-hoc, enterprise, development)" 95
-      ;;
-  esac
-
-  case "$CODE_SIGN_STYLE" in
-    automatic|manual)
-      ;;
-    *)
-      fail_config "Invalid FILIUSPAD_CODE_SIGN_STYLE='${CODE_SIGN_STYLE}' (expected automatic or manual)" 96
-      ;;
-  esac
 
   if [[ -z "$PROJECT_PATH" ]] || [[ ! -f "$PROJECT_PATH/project.pbxproj" ]]; then
     fail_config "Xcode project not found at ${PROJECT_PATH}" 97
@@ -91,16 +114,6 @@ validate_configuration() {
 
   if [[ "$IPA_OUTPUT_PATH" != *.ipa ]]; then
     fail_config "FILIUSPAD_IPA_OUTPUT_PATH must end with .ipa" 101
-  fi
-
-  if [[ "$CODE_SIGN_STYLE" == "manual" ]]; then
-    if [[ -z "$PROVISIONING_PROFILE_SPECIFIER" ]]; then
-      fail_config "FILIUSPAD_PROVISIONING_PROFILE_SPECIFIER is required when FILIUSPAD_CODE_SIGN_STYLE=manual" 102
-    fi
-
-    if [[ -z "$BUNDLE_IDENTIFIER" ]]; then
-      fail_config "FILIUSPAD_BUNDLE_IDENTIFIER is required when FILIUSPAD_CODE_SIGN_STYLE=manual" 103
-    fi
   fi
 }
 
@@ -211,17 +224,74 @@ ensure_ipa_exists() {
   return 104
 }
 
-run_dry_run() {
-  local method
-  method="$(effective_export_method)"
+assemble_unsigned_ipa() {
+  rm -rf "$EXPORT_DIR/Payload"
+  mkdir -p "$EXPORT_DIR/Payload"
+  cp -R "$UNSIGNED_APP_PATH" "$EXPORT_DIR/Payload/"
 
+  (
+    cd "$EXPORT_DIR"
+    zip -qry "$(basename "$IPA_OUTPUT_PATH")" Payload
+  )
+}
+
+build_unsigned_ipa() {
+  if ! command -v zip >/dev/null 2>&1; then
+    fail_config "zip command is required for unsigned IPA packaging" 106
+  fi
+
+  mkdir -p "$DERIVED_DATA_PATH" "$EXPORT_DIR"
+  rm -rf "$UNSIGNED_APP_PATH"
+  rm -f "$IPA_OUTPUT_PATH"
+
+  run_phase \
+    "Build (xcodebuild unsigned app)" \
+    "$ARCHIVE_TIMEOUT_SECONDS" \
+    xcodebuild \
+    -project "$PROJECT_PATH" \
+    -scheme "$SCHEME" \
+    -configuration "$CONFIGURATION" \
+    -destination "generic/platform=iOS" \
+    -derivedDataPath "$DERIVED_DATA_PATH" \
+    CODE_SIGNING_ALLOWED=NO \
+    CODE_SIGNING_REQUIRED=NO \
+    CODE_SIGN_IDENTITY="" \
+    build
+
+  if [[ ! -d "$UNSIGNED_APP_PATH" ]]; then
+    log "✗ Unsigned app artifact missing at ${UNSIGNED_APP_PATH}"
+    exit 107
+  fi
+
+  run_phase "Assemble unsigned IPA (Payload zip)" "$EXPORT_TIMEOUT_SECONDS" assemble_unsigned_ipa
+
+  if ! ensure_ipa_exists; then
+    exit $?
+  fi
+}
+
+run_dry_run() {
   log "▶ Dry run: validate package contract"
   log "  project: ${PROJECT_PATH}"
   log "  scheme: ${SCHEME}"
   log "  configuration: ${CONFIGURATION}"
-  log "  archive path: ${ARCHIVE_PATH}"
   log "  export dir: ${EXPORT_DIR}"
   log "  ipa path: ${IPA_OUTPUT_PATH}"
+
+  if [[ "$UNSIGNED_MODE" == "1" ]]; then
+    log "  mode: unsigned"
+    log "  derived data path: ${DERIVED_DATA_PATH}"
+    log "  unsigned app path: ${UNSIGNED_APP_PATH}"
+    log "  build command: xcodebuild -project \"${PROJECT_PATH}\" -scheme \"${SCHEME}\" -configuration \"${CONFIGURATION}\" -destination \"generic/platform=iOS\" -derivedDataPath \"${DERIVED_DATA_PATH}\" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=\"\" build"
+    log "  package command: (cd \"${EXPORT_DIR}\" && zip -qry \"$(basename "$IPA_OUTPUT_PATH")\" Payload)"
+    log "✓ Dry run complete"
+    return
+  fi
+
+  local method
+  method="$(effective_export_method)"
+
+  log "  archive path: ${ARCHIVE_PATH}"
   log "  export method: ${method}"
   log "  code sign style: ${CODE_SIGN_STYLE}"
 
@@ -244,11 +314,17 @@ if [[ "$PACKAGE_DRY_RUN" == "1" ]]; then
 fi
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
-  fail_config "xcodebuild archive/export requires macOS; set FILIUSPAD_PACKAGE_DRY_RUN=1 for non-mac contract checks" 127
+  fail_config "IPA packaging requires macOS xcodebuild; set FILIUSPAD_PACKAGE_DRY_RUN=1 for non-mac contract checks" 127
 fi
 
 if ! command -v xcodebuild >/dev/null 2>&1; then
   fail_config "xcodebuild is required for archive/export packaging" 126
+fi
+
+if [[ "$UNSIGNED_MODE" == "1" ]]; then
+  build_unsigned_ipa
+  log "✓ IPA packaging completed (unsigned): ${IPA_OUTPUT_PATH}"
+  exit 0
 fi
 
 mkdir -p "$(dirname "$ARCHIVE_PATH")" "$EXPORT_DIR"

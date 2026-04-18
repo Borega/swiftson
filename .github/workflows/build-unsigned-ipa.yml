@@ -1,0 +1,36 @@
+name: Build Unsigned IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-ipa:
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Build unsigned IPA
+        run: |
+          chmod +x ios/scripts/package-ipa.sh
+          FILIUSPAD_UNSIGNED=1 \
+          FILIUSPAD_CONFIGURATION=Release \
+          bash ios/scripts/package-ipa.sh
+
+      - name: Verify IPA exists
+        run: test -f ios/build/ipa/FiliusPad.ipa
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FiliusPad-unsigned-ipa
+          path: ios/build/ipa/FiliusPad.ipa
+          if-no-files-found: error
+          retention-days: 14
