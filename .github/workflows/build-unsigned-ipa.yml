@@ -17,12 +17,10 @@ jobs:
       - name: Show Xcode version
         run: xcodebuild -version
 
-      - name: Build unsigned IPA
+      - name: Run canonical M002 S04 gate
         run: |
-          chmod +x ios/scripts/package-ipa.sh
-          FILIUSPAD_UNSIGNED=1 \
-          FILIUSPAD_CONFIGURATION=Release \
-          bash ios/scripts/package-ipa.sh
+          M002_S04_VERIFY_ALLOW_MISSING_XCODEBUILD=0 \
+          bash ios/scripts/verify-m002-s04.sh
 
       - name: Verify IPA exists
         run: test -f ios/build/ipa/FiliusPad.ipa
