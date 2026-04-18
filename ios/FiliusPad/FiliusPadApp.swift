@@ -22,6 +22,16 @@ struct FiliusPadApp: App {
                     Text("Last error: \(code)")
                         .accessibilityIdentifier("debug.lastValidationError")
                 }
+
+                if let action = editorState.lastAction {
+                    Text("Last action: \(action)")
+                        .accessibilityIdentifier("debug.lastAction")
+                }
+
+                if let lastActionAt = editorState.lastActionAt {
+                    Text("Last action at: \(lastActionAt.timeIntervalSince1970)")
+                        .accessibilityIdentifier("debug.lastActionAt")
+                }
             }
             .padding(20)
         }
