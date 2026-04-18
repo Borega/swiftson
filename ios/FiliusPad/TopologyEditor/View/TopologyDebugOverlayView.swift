@@ -30,6 +30,9 @@ struct TopologyDebugOverlayView: View {
             Text("Last runtime event: \(debugRuntimeEvent(state.lastRuntimeEvent))")
                 .accessibilityIdentifier("debug.lastRuntimeEvent")
 
+            Text("Last runtime route: \(debugRuntimeRoute(state.lastRuntimeEvent))")
+                .accessibilityIdentifier("debug.lastRuntimeRoute")
+
             Text("Last runtime fault: \(debugRuntimeFault(state.lastRuntimeFault))")
                 .accessibilityIdentifier("debug.lastRuntimeFault")
 
@@ -121,6 +124,17 @@ struct TopologyDebugOverlayView: View {
         }
 
         return event.code.rawValue
+    }
+
+    private func debugRuntimeRoute(_ event: TopologyRuntimeEvent?) -> String {
+        guard let event,
+              let detail = event.detail,
+              detail.contains("path=") || detail.contains("hops=") || detail.contains("latencyMs=")
+        else {
+            return "none"
+        }
+
+        return detail
     }
 
     private func debugRuntimeFault(_ fault: TopologyRuntimeFault?) -> String {

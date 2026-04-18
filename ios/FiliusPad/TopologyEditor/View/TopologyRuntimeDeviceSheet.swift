@@ -114,11 +114,16 @@ struct TopologyRuntimeDeviceSheet: View {
             Text("Command")
                 .font(.subheadline.weight(.semibold))
 
-            TextField("ping <target-ipv4>", text: $command)
+            TextField("ping|trace <target-ipv4>", text: $command)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .textFieldStyle(.roundedBorder)
                 .accessibilityIdentifier("runtime.device.command")
+
+            Text("Supported: ping <target-ipv4>, trace <target-ipv4>")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("runtime.device.command.help")
 
             Button("Execute") {
                 onExecuteCommand(command)

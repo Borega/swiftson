@@ -4,9 +4,15 @@ import Foundation
 enum TopologyEditorReducer {
     private static let maxRuntimeConsoleEntriesPerDevice = 60
 
-    private enum PingCommandParseResult {
-        case success(String)
-        case failure(String)
+    private enum RuntimeCommand {
+        case ping(String)
+        case trace(String)
+    }
+
+    private enum RuntimeCommandParseResult {
+        case success(RuntimeCommand)
+        case malformed(command: String?, reason: String)
+        case unsupported(command: String)
     }
 
     private enum PortResolutionResult {
@@ -364,21 +370,32 @@ enum TopologyEditorReducer {
                 line: "> \(normalizedCommand.isEmpty ? "(empty)" : normalizedCommand)"
             )
 
-            guard state.simulationPhase == .running else {
-                setPingFailure(
+            switch parseRuntimeCommand(normalizedCommand) {
+            case let .unsupported(command):
+                setRuntimeCommandFailure(
                     state: &state,
                     sourceNodeID: sourceNodeID,
-                    eventCode: .pingRejectedSimulationStopped,
-                    faultCategory: .runtimeFault,
-                    faultCode: "pingWhileSimulationStopped",
-                    message: "Ping commands require a running simulation",
-                    detail: "phase=\(state.simulationPhase.rawValue)"
+                    eventCode: .runtimeCommandRejectedUnsupported,
+                    faultCode: "unsupportedRuntimeCommand",
+                    message: "Unsupported runtime command '\(command)'. Supported commands are: ping, trace",
+                    detail: "unsupportedRuntimeCommand"
                 )
                 return
-            }
 
-            switch parsePingCommand(normalizedCommand) {
-            case let .failure(reason):
+            case let .malformed(command, reason):
+                if command == "trace" {
+                    setTraceFailure(
+                        state: &state,
+                        sourceNodeID: sourceNodeID,
+                        eventCode: .traceRejectedMalformedCommand,
+                        faultCategory: .commandValidation,
+                        faultCode: "malformedTraceCommand",
+                        message: reason,
+                        detail: "malformedTraceCommand"
+                    )
+                    return
+                }
+
                 setPingFailure(
                     state: &state,
                     sourceNodeID: sourceNodeID,
@@ -390,89 +407,48 @@ enum TopologyEditorReducer {
                 )
                 return
 
-            case let .success(targetIPAddress):
-                guard let sourceConfiguration = state.runtimeDeviceConfigurations[sourceNodeID] else {
-                    setPingFailure(
+            case let .success(runtimeCommand):
+                switch runtimeCommand {
+                case let .ping(targetIPAddress):
+                    guard state.simulationPhase == .running else {
+                        setPingFailure(
+                            state: &state,
+                            sourceNodeID: sourceNodeID,
+                            eventCode: .pingRejectedSimulationStopped,
+                            faultCategory: .runtimeFault,
+                            faultCode: "pingWhileSimulationStopped",
+                            message: "Ping commands require a running simulation",
+                            detail: "phase=\(state.simulationPhase.rawValue)"
+                        )
+                        return
+                    }
+
+                    executePingCommand(
                         state: &state,
                         sourceNodeID: sourceNodeID,
-                        eventCode: .pingRejectedInvalidSourceConfiguration,
-                        faultCategory: .networkConfiguration,
-                        faultCode: "sourceConfigurationMissing",
-                        message: "Configure source IP and subnet before pinging",
-                        detail: "sourceConfigurationMissing"
+                        targetIPAddress: targetIPAddress
                     )
-                    return
-                }
 
-                let targetNodeIDs = state.runtimeDeviceConfigurations
-                    .filter { $0.value.ipAddress == targetIPAddress }
-                    .map(\.key)
-                    .sorted { $0.uuidString < $1.uuidString }
+                case let .trace(targetIPAddress):
+                    guard state.simulationPhase == .running else {
+                        setTraceFailure(
+                            state: &state,
+                            sourceNodeID: sourceNodeID,
+                            eventCode: .traceRejectedSimulationStopped,
+                            faultCategory: .runtimeFault,
+                            faultCode: "traceWhileSimulationStopped",
+                            message: "Trace commands require a running simulation",
+                            detail: "phase=\(state.simulationPhase.rawValue)"
+                        )
+                        return
+                    }
 
-                guard targetNodeIDs.count == 1, let targetNodeID = targetNodeIDs.first else {
-                    setPingFailure(
+                    executeTraceCommand(
                         state: &state,
                         sourceNodeID: sourceNodeID,
-                        eventCode: .pingRejectedUnknownTarget,
-                        faultCategory: .networkRouting,
-                        faultCode: "pingTargetUnknown",
-                        message: "No unique node is configured with target \(targetIPAddress)",
-                        detail: "pingTargetUnknown"
+                        targetIPAddress: targetIPAddress
                     )
-                    return
                 }
-
-                guard state.graph.containsNode(id: targetNodeID),
-                      let targetConfiguration = state.runtimeDeviceConfigurations[targetNodeID] else {
-                    setPingFailure(
-                        state: &state,
-                        sourceNodeID: sourceNodeID,
-                        eventCode: .pingRejectedUnknownTarget,
-                        faultCategory: .networkRouting,
-                        faultCode: "pingTargetUnknown",
-                        message: "Target node is unavailable in topology",
-                        detail: "pingTargetUnknown"
-                    )
-                    return
-                }
-
-                guard areInSameSubnet(source: sourceConfiguration, target: targetConfiguration) else {
-                    setPingFailure(
-                        state: &state,
-                        sourceNodeID: sourceNodeID,
-                        eventCode: .pingRejectedSubnetMismatch,
-                        faultCategory: .networkRouting,
-                        faultCode: "pingSubnetMismatch",
-                        message: "Source and target are not in the same subnet",
-                        detail: "pingSubnetMismatch"
-                    )
-                    return
-                }
-
-                guard state.graph.isReachable(from: sourceNodeID, to: targetNodeID) else {
-                    setPingFailure(
-                        state: &state,
-                        sourceNodeID: sourceNodeID,
-                        eventCode: .pingRejectedTopologyUnreachable,
-                        faultCategory: .networkRouting,
-                        faultCode: "pingTargetUnreachable",
-                        message: "No topology path exists between source and target",
-                        detail: "pingTargetUnreachable"
-                    )
-                    return
-                }
-
-                state.lastPingFault = nil
-                state.lastRuntimeFault = nil
-
-                let successDetail = "source=\(sourceNodeID.uuidString),target=\(targetNodeID.uuidString),targetIP=\(targetIPAddress)"
-                state.lastPingEvent = TopologyRuntimeEvent(code: .pingSucceeded, detail: successDetail)
-                recordRuntimeEvent(state: &state, code: .pingSucceeded, detail: successDetail)
-                appendConsoleLine(
-                    state: &state,
-                    nodeID: sourceNodeID,
-                    line: "Ping to \(targetIPAddress) succeeded"
-                )
             }
 
         case let .moveSelectedNodes(delta):
@@ -583,6 +559,262 @@ enum TopologyEditorReducer {
         appendConsoleLine(state: &state, nodeID: sourceNodeID, line: "Ping failed: \(faultCode) — \(message)")
     }
 
+    private static func setTraceFailure(
+        state: inout TopologyEditorState,
+        sourceNodeID: UUID,
+        eventCode: TopologyRuntimeEventCode,
+        faultCategory: TopologyRuntimeFaultCategory,
+        faultCode: String,
+        message: String,
+        detail: String
+    ) {
+        let fault = TopologyRuntimeFault(
+            category: faultCategory,
+            code: faultCode,
+            message: message
+        )
+        state.lastRuntimeFault = fault
+        recordRuntimeEvent(state: &state, code: eventCode, detail: detail)
+        appendConsoleLine(state: &state, nodeID: sourceNodeID, line: "Trace failed: \(faultCode) — \(message)")
+    }
+
+    private static func setRuntimeCommandFailure(
+        state: inout TopologyEditorState,
+        sourceNodeID: UUID,
+        eventCode: TopologyRuntimeEventCode,
+        faultCode: String,
+        message: String,
+        detail: String
+    ) {
+        let fault = TopologyRuntimeFault(
+            category: .commandValidation,
+            code: faultCode,
+            message: message
+        )
+        state.lastRuntimeFault = fault
+        recordRuntimeEvent(state: &state, code: eventCode, detail: detail)
+        appendConsoleLine(state: &state, nodeID: sourceNodeID, line: "Command failed: \(faultCode) — \(message)")
+    }
+
+    private static func executePingCommand(
+        state: inout TopologyEditorState,
+        sourceNodeID: UUID,
+        targetIPAddress: String
+    ) {
+        guard let sourceConfiguration = state.runtimeDeviceConfigurations[sourceNodeID] else {
+            setPingFailure(
+                state: &state,
+                sourceNodeID: sourceNodeID,
+                eventCode: .pingRejectedInvalidSourceConfiguration,
+                faultCategory: .networkConfiguration,
+                faultCode: "sourceConfigurationMissing",
+                message: "Configure source IP and subnet before pinging",
+                detail: "sourceConfigurationMissing"
+            )
+            return
+        }
+
+        let targetNodeIDs = state.runtimeDeviceConfigurations
+            .filter { $0.value.ipAddress == targetIPAddress }
+            .map(\.key)
+            .sorted { $0.uuidString < $1.uuidString }
+
+        guard targetNodeIDs.count == 1, let targetNodeID = targetNodeIDs.first else {
+            setPingFailure(
+                state: &state,
+                sourceNodeID: sourceNodeID,
+                eventCode: .pingRejectedUnknownTarget,
+                faultCategory: .networkRouting,
+                faultCode: "pingTargetUnknown",
+                message: "No unique node is configured with target \(targetIPAddress)",
+                detail: "pingTargetUnknown"
+            )
+            return
+        }
+
+        guard state.graph.containsNode(id: targetNodeID),
+              let targetConfiguration = state.runtimeDeviceConfigurations[targetNodeID] else {
+            setPingFailure(
+                state: &state,
+                sourceNodeID: sourceNodeID,
+                eventCode: .pingRejectedUnknownTarget,
+                faultCategory: .networkRouting,
+                faultCode: "pingTargetUnknown",
+                message: "Target node is unavailable in topology",
+                detail: "pingTargetUnknown"
+            )
+            return
+        }
+
+        guard areInSameSubnet(source: sourceConfiguration, target: targetConfiguration) else {
+            setPingFailure(
+                state: &state,
+                sourceNodeID: sourceNodeID,
+                eventCode: .pingRejectedSubnetMismatch,
+                faultCategory: .networkRouting,
+                faultCode: "pingSubnetMismatch",
+                message: "Source and target are not in the same subnet",
+                detail: "pingSubnetMismatch"
+            )
+            return
+        }
+
+        guard let pathNodeIDs = state.graph.shortestPathNodeIDs(from: sourceNodeID, to: targetNodeID) else {
+            setPingFailure(
+                state: &state,
+                sourceNodeID: sourceNodeID,
+                eventCode: .pingRejectedTopologyUnreachable,
+                faultCategory: .networkRouting,
+                faultCode: "pingTargetUnreachable",
+                message: "No topology path exists between source and target",
+                detail: "pingTargetUnreachable"
+            )
+            return
+        }
+
+        let hopCount = max(0, pathNodeIDs.count - 1)
+        let latencyMilliseconds = deterministicLatencyMilliseconds(forHopCount: hopCount)
+
+        state.lastPingFault = nil
+        state.lastRuntimeFault = nil
+
+        let successDetail = routeDetail(
+            command: "ping",
+            sourceNodeID: sourceNodeID,
+            targetNodeID: targetNodeID,
+            targetIPAddress: targetIPAddress,
+            hopCount: hopCount,
+            latencyMilliseconds: latencyMilliseconds,
+            pathNodeIDs: pathNodeIDs
+        )
+        state.lastPingEvent = TopologyRuntimeEvent(code: .pingSucceeded, detail: successDetail)
+        recordRuntimeEvent(state: &state, code: .pingSucceeded, detail: successDetail)
+        appendConsoleLine(
+            state: &state,
+            nodeID: sourceNodeID,
+            line: "Ping to \(targetIPAddress) succeeded"
+        )
+    }
+
+    private static func executeTraceCommand(
+        state: inout TopologyEditorState,
+        sourceNodeID: UUID,
+        targetIPAddress: String
+    ) {
+        guard let sourceConfiguration = state.runtimeDeviceConfigurations[sourceNodeID] else {
+            setTraceFailure(
+                state: &state,
+                sourceNodeID: sourceNodeID,
+                eventCode: .traceRejectedInvalidSourceConfiguration,
+                faultCategory: .networkConfiguration,
+                faultCode: "sourceConfigurationMissing",
+                message: "Configure source IP and subnet before tracing",
+                detail: "sourceConfigurationMissing"
+            )
+            return
+        }
+
+        let targetNodeIDs = state.runtimeDeviceConfigurations
+            .filter { $0.value.ipAddress == targetIPAddress }
+            .map(\.key)
+            .sorted { $0.uuidString < $1.uuidString }
+
+        guard targetNodeIDs.count == 1, let targetNodeID = targetNodeIDs.first else {
+            setTraceFailure(
+                state: &state,
+                sourceNodeID: sourceNodeID,
+                eventCode: .traceRejectedUnknownTarget,
+                faultCategory: .networkRouting,
+                faultCode: "traceTargetUnknown",
+                message: "No unique node is configured with target \(targetIPAddress)",
+                detail: "traceTargetUnknown"
+            )
+            return
+        }
+
+        guard state.graph.containsNode(id: targetNodeID),
+              let targetConfiguration = state.runtimeDeviceConfigurations[targetNodeID] else {
+            setTraceFailure(
+                state: &state,
+                sourceNodeID: sourceNodeID,
+                eventCode: .traceRejectedUnknownTarget,
+                faultCategory: .networkRouting,
+                faultCode: "traceTargetUnknown",
+                message: "Target node is unavailable in topology",
+                detail: "traceTargetUnknown"
+            )
+            return
+        }
+
+        guard areInSameSubnet(source: sourceConfiguration, target: targetConfiguration) else {
+            setTraceFailure(
+                state: &state,
+                sourceNodeID: sourceNodeID,
+                eventCode: .traceRejectedSubnetMismatch,
+                faultCategory: .networkRouting,
+                faultCode: "traceSubnetMismatch",
+                message: "Source and target are not in the same subnet",
+                detail: "traceSubnetMismatch"
+            )
+            return
+        }
+
+        guard let pathNodeIDs = state.graph.shortestPathNodeIDs(from: sourceNodeID, to: targetNodeID) else {
+            setTraceFailure(
+                state: &state,
+                sourceNodeID: sourceNodeID,
+                eventCode: .traceRejectedTopologyUnreachable,
+                faultCategory: .networkRouting,
+                faultCode: "traceTargetUnreachable",
+                message: "No topology path exists between source and target",
+                detail: "traceTargetUnreachable"
+            )
+            return
+        }
+
+        let hopCount = max(0, pathNodeIDs.count - 1)
+        let latencyMilliseconds = deterministicLatencyMilliseconds(forHopCount: hopCount)
+
+        state.lastRuntimeFault = nil
+
+        let detail = routeDetail(
+            command: "trace",
+            sourceNodeID: sourceNodeID,
+            targetNodeID: targetNodeID,
+            targetIPAddress: targetIPAddress,
+            hopCount: hopCount,
+            latencyMilliseconds: latencyMilliseconds,
+            pathNodeIDs: pathNodeIDs
+        )
+        recordRuntimeEvent(state: &state, code: .traceSucceeded, detail: detail)
+        appendConsoleLine(
+            state: &state,
+            nodeID: sourceNodeID,
+            line: "Trace to \(targetIPAddress) succeeded (hops=\(hopCount), latencyMs=\(latencyMilliseconds))"
+        )
+        appendConsoleLine(
+            state: &state,
+            nodeID: sourceNodeID,
+            line: "Path: \(pathNodeIDs.map(\.uuidString).joined(separator: " -> "))"
+        )
+    }
+
+    private static func routeDetail(
+        command: String,
+        sourceNodeID: UUID,
+        targetNodeID: UUID,
+        targetIPAddress: String,
+        hopCount: Int,
+        latencyMilliseconds: Int,
+        pathNodeIDs: [UUID]
+    ) -> String {
+        "command=\(command),source=\(sourceNodeID.uuidString),target=\(targetNodeID.uuidString),targetIP=\(targetIPAddress),hops=\(hopCount),latencyMs=\(latencyMilliseconds),path=\(pathNodeIDs.map(\.uuidString).joined(separator: "->"))"
+    }
+
+    private static func deterministicLatencyMilliseconds(forHopCount hopCount: Int) -> Int {
+        max(1, 2 + (hopCount * 4))
+    }
+
     private static func appendConsoleLine(state: inout TopologyEditorState, nodeID: UUID, line: String) {
         var entries = state.runtimeConsoleEntriesByNodeID[nodeID] ?? []
         entries.append(line)
@@ -601,18 +833,55 @@ enum TopologyEditorReducer {
         return trimmed
     }
 
-    private static func parsePingCommand(_ command: String) -> PingCommandParseResult {
+    private static func parseRuntimeCommand(_ command: String) -> RuntimeCommandParseResult {
         let parts = command.split(whereSeparator: { $0.isWhitespace }).map(String.init)
 
-        guard parts.count == 2, parts[0].lowercased() == "ping" else {
-            return .failure("Command must follow deterministic format: ping <target-ipv4>")
+        guard let firstToken = parts.first else {
+            return .malformed(
+                command: nil,
+                reason: "Command must follow deterministic format: ping <target-ipv4>"
+            )
         }
 
-        guard let normalizedTargetAddress = normalizedIPv4Address(parts[1]) else {
-            return .failure("Ping target must be a valid IPv4 address")
-        }
+        let commandToken = firstToken.lowercased()
+        switch commandToken {
+        case "ping":
+            guard parts.count == 2 else {
+                return .malformed(
+                    command: "ping",
+                    reason: "Command must follow deterministic format: ping <target-ipv4>"
+                )
+            }
 
-        return .success(normalizedTargetAddress)
+            guard let normalizedTargetAddress = normalizedIPv4Address(parts[1]) else {
+                return .malformed(
+                    command: "ping",
+                    reason: "Ping target must be a valid IPv4 address"
+                )
+            }
+
+            return .success(.ping(normalizedTargetAddress))
+
+        case "trace", "path", "traceroute":
+            guard parts.count == 2 else {
+                return .malformed(
+                    command: "trace",
+                    reason: "Command must follow deterministic format: trace <target-ipv4>"
+                )
+            }
+
+            guard let normalizedTargetAddress = normalizedIPv4Address(parts[1]) else {
+                return .malformed(
+                    command: "trace",
+                    reason: "Trace target must be a valid IPv4 address"
+                )
+            }
+
+            return .success(.trace(normalizedTargetAddress))
+
+        default:
+            return .unsupported(command: commandToken)
+        }
     }
 
     private static func normalizedIPv4Address(_ value: String?) -> String? {

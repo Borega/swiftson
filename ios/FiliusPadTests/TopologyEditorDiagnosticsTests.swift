@@ -215,9 +215,50 @@ final class TopologyEditorDiagnosticsTests: XCTestCase {
 
         XCTAssertEqual(state.lastPingEvent?.code, .pingSucceeded)
         XCTAssertTrue(state.lastPingEvent?.detail?.contains("targetIP=192.168.0.20") ?? false)
+        XCTAssertTrue(state.lastPingEvent?.detail?.contains("hops=") ?? false)
+        XCTAssertTrue(state.lastPingEvent?.detail?.contains("latencyMs=") ?? false)
+        XCTAssertTrue(state.lastPingEvent?.detail?.contains("path=") ?? false)
         XCTAssertNil(state.lastPingFault)
         XCTAssertNil(state.lastRuntimeFault)
         XCTAssertEqual(state.lastRuntimeEvent?.code, .pingSucceeded)
+    }
+
+    func testTraceSuccessPublishesPathAwareRuntimeDiagnostics() {
+        var state = TopologyEditorState()
+
+        let sourceNodeID = addNode(kind: .pc, at: CGPoint(x: 20, y: 20), to: &state)
+        let switchNodeID = addNode(kind: .networkSwitch, at: CGPoint(x: 160, y: 100), to: &state)
+        let targetNodeID = addNode(kind: .pc, at: CGPoint(x: 300, y: 20), to: &state)
+
+        connect(sourceNodeID, switchNodeID, state: &state)
+        connect(targetNodeID, switchNodeID, state: &state)
+
+        saveRuntimeIP(nodeID: sourceNodeID, ipAddress: "192.168.0.10", subnetMask: "255.255.255.0", state: &state)
+        saveRuntimeIP(nodeID: targetNodeID, ipAddress: "192.168.0.20", subnetMask: "255.255.255.0", state: &state)
+
+        TopologyEditorReducer.reduce(state: &state, action: .startSimulation)
+        TopologyEditorReducer.reduce(state: &state, action: .executePing(nodeID: sourceNodeID, command: "trace 192.168.0.20"))
+
+        XCTAssertEqual(state.lastRuntimeEvent?.code, .traceSucceeded)
+        XCTAssertTrue(state.lastRuntimeEvent?.detail?.contains("command=trace") ?? false)
+        XCTAssertTrue(state.lastRuntimeEvent?.detail?.contains("hops=2") ?? false)
+        XCTAssertTrue(state.lastRuntimeEvent?.detail?.contains("path=") ?? false)
+        XCTAssertTrue(state.lastRuntimeEvent?.detail?.contains("latencyMs=10") ?? false)
+        XCTAssertNil(state.lastRuntimeFault)
+    }
+
+    func testUnsupportedRuntimeCommandUsesExplicitAttributableFault() {
+        var state = TopologyEditorState()
+
+        let sourceNodeID = addNode(kind: .pc, at: CGPoint(x: 20, y: 20), to: &state)
+        TopologyEditorReducer.reduce(state: &state, action: .startSimulation)
+
+        TopologyEditorReducer.reduce(state: &state, action: .executePing(nodeID: sourceNodeID, command: "nmap 192.168.0.20"))
+
+        XCTAssertEqual(state.lastRuntimeEvent?.code, .runtimeCommandRejectedUnsupported)
+        XCTAssertEqual(state.lastRuntimeFault?.category, .commandValidation)
+        XCTAssertEqual(state.lastRuntimeFault?.code, "unsupportedRuntimeCommand")
+        XCTAssertTrue(state.lastRuntimeFault?.message.contains("nmap") ?? false)
     }
 
     func testPersistenceFailureMetadataIsInspectableAndDismissible() {

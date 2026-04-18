@@ -427,6 +427,10 @@ final class TopologyEditorReducerTests: XCTestCase {
         TopologyEditorReducer.reduce(state: &state, action: .executePing(nodeID: sourceNodeID, command: "ping 192.168.0.20"))
 
         XCTAssertEqual(state.lastPingEvent?.code, .pingSucceeded)
+        XCTAssertTrue(state.lastPingEvent?.detail?.contains("targetIP=192.168.0.20") ?? false)
+        XCTAssertTrue(state.lastPingEvent?.detail?.contains("hops=") ?? false)
+        XCTAssertTrue(state.lastPingEvent?.detail?.contains("path=") ?? false)
+        XCTAssertTrue(state.lastPingEvent?.detail?.contains("latencyMs=") ?? false)
         XCTAssertNil(state.lastPingFault)
         XCTAssertEqual(state.lastRuntimeEvent?.code, .pingSucceeded)
         XCTAssertEqual(state.runtimeConsoleEntriesByNodeID[sourceNodeID]?.last, "Ping to 192.168.0.20 succeeded")
@@ -537,6 +541,71 @@ final class TopologyEditorReducerTests: XCTestCase {
 
         XCTAssertEqual(state.lastPingEvent?.code, .pingSucceeded)
         XCTAssertNil(state.lastPingFault)
+    }
+
+    func testExecuteTraceSuccessReportsDeterministicPathAndHopMetadata() {
+        var state = TopologyEditorState()
+
+        let sourceNodeID = addNode(kind: .pc, at: CGPoint(x: 20, y: 20), nodeID: uuid("10000000-0000-0000-0000-000000000001"), to: &state)
+        let switchAID = addNode(kind: .networkSwitch, at: CGPoint(x: 140, y: 20), nodeID: uuid("20000000-0000-0000-0000-000000000002"), to: &state)
+        let switchBID = addNode(kind: .networkSwitch, at: CGPoint(x: 260, y: 20), nodeID: uuid("30000000-0000-0000-0000-000000000003"), to: &state)
+        let targetNodeID = addNode(kind: .pc, at: CGPoint(x: 380, y: 20), nodeID: uuid("40000000-0000-0000-0000-000000000004"), to: &state)
+
+        connect(sourceNodeID, switchAID, state: &state)
+        connect(switchAID, switchBID, state: &state)
+        connect(switchBID, targetNodeID, state: &state)
+
+        saveRuntimeIP(nodeID: sourceNodeID, ipAddress: "192.168.0.10", subnetMask: "255.255.255.0", state: &state)
+        saveRuntimeIP(nodeID: targetNodeID, ipAddress: "192.168.0.20", subnetMask: "255.255.255.0", state: &state)
+
+        TopologyEditorReducer.reduce(state: &state, action: .startSimulation)
+        TopologyEditorReducer.reduce(state: &state, action: .executePing(nodeID: sourceNodeID, command: "trace 192.168.0.20"))
+
+        XCTAssertEqual(state.lastRuntimeEvent?.code, .traceSucceeded)
+        XCTAssertTrue(state.lastRuntimeEvent?.detail?.contains("command=trace") ?? false)
+        XCTAssertTrue(state.lastRuntimeEvent?.detail?.contains("hops=3") ?? false)
+        XCTAssertTrue(state.lastRuntimeEvent?.detail?.contains("latencyMs=14") ?? false)
+        XCTAssertTrue(
+            state.lastRuntimeEvent?.detail?.contains(
+                "path=10000000-0000-0000-0000-000000000001->20000000-0000-0000-0000-000000000002->30000000-0000-0000-0000-000000000003->40000000-0000-0000-0000-000000000004"
+            ) ?? false
+        )
+        XCTAssertNil(state.lastRuntimeFault)
+        XCTAssertEqual(
+            Array(state.runtimeConsoleEntriesByNodeID[sourceNodeID]?.suffix(2) ?? []),
+            [
+                "Trace to 192.168.0.20 succeeded (hops=3, latencyMs=14)",
+                "Path: 10000000-0000-0000-0000-000000000001 -> 20000000-0000-0000-0000-000000000002 -> 30000000-0000-0000-0000-000000000003 -> 40000000-0000-0000-0000-000000000004"
+            ]
+        )
+    }
+
+    func testExecuteTraceRejectsUnsupportedCommandVerbExplicitly() {
+        var state = TopologyEditorState()
+
+        let sourceNodeID = addNode(kind: .pc, at: CGPoint(x: 30, y: 30), to: &state)
+        TopologyEditorReducer.reduce(state: &state, action: .startSimulation)
+        TopologyEditorReducer.reduce(state: &state, action: .executePing(nodeID: sourceNodeID, command: "arp 192.168.0.20"))
+
+        XCTAssertEqual(state.lastRuntimeEvent?.code, .runtimeCommandRejectedUnsupported)
+        XCTAssertEqual(state.lastRuntimeFault?.category, .commandValidation)
+        XCTAssertEqual(state.lastRuntimeFault?.code, "unsupportedRuntimeCommand")
+        XCTAssertTrue(state.runtimeConsoleEntriesByNodeID[sourceNodeID]?.last?.contains("unsupportedRuntimeCommand") ?? false)
+    }
+
+    func testExecuteTraceMalformedCommandIsAttributedWithoutMutatingPingContracts() {
+        var state = TopologyEditorState()
+
+        let sourceNodeID = addNode(kind: .pc, at: CGPoint(x: 30, y: 30), to: &state)
+        saveRuntimeIP(nodeID: sourceNodeID, ipAddress: "192.168.0.10", subnetMask: "255.255.255.0", state: &state)
+        TopologyEditorReducer.reduce(state: &state, action: .startSimulation)
+
+        TopologyEditorReducer.reduce(state: &state, action: .executePing(nodeID: sourceNodeID, command: "trace"))
+
+        XCTAssertEqual(state.lastRuntimeEvent?.code, .traceRejectedMalformedCommand)
+        XCTAssertEqual(state.lastRuntimeFault?.category, .commandValidation)
+        XCTAssertEqual(state.lastRuntimeFault?.code, "malformedTraceCommand")
+        XCTAssertNil(state.lastPingEvent)
     }
 
     func testShortestPathHopCountReturnsExpectedHopsForLinearTopology() {

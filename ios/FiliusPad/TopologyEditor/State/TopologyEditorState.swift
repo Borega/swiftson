@@ -38,6 +38,14 @@ enum TopologyRuntimeEventCode: String, Equatable {
     case pingRejectedInvalidSourceConfiguration
     case pingRejectedTopologyUnreachable
     case pingRejectedSubnetMismatch
+    case traceSucceeded
+    case traceRejectedSimulationStopped
+    case traceRejectedMalformedCommand
+    case traceRejectedUnknownTarget
+    case traceRejectedInvalidSourceConfiguration
+    case traceRejectedTopologyUnreachable
+    case traceRejectedSubnetMismatch
+    case runtimeCommandRejectedUnsupported
 }
 
 struct TopologyRuntimeEvent: Equatable {
