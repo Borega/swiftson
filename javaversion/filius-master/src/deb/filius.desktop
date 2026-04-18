@@ -1,0 +1,16 @@
+[Desktop Entry]
+Name=Filius
+Name[de]=Filius
+GenericName=Computer Network Simulator
+GenericName[de]=Simulator Rechnernetze
+Comment=Learn how Computer Networks are built
+Comment[de]=Lernsoftware zu Rechnernetzen
+Exec=/usr/share/filius/filius.sh %f
+Icon=filius
+Terminal=false
+Type=Application
+Categories=Education;Science;
+StartupNotify=false
+MimeType=application/filius-project
+Keywords=network;simulation;internet;school;education
+Keywords[de]=Netzwerk;Simulation;Internet;Schule;Bildung
