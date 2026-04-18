@@ -272,6 +272,89 @@ final class TopologyEditorReducerTests: XCTestCase {
         XCTAssertEqual(state.viewport, initialViewport)
     }
 
+    func testStartSimulationIsIdempotentAndDeterministic() {
+        var state = TopologyEditorState()
+
+        TopologyEditorReducer.reduce(state: &state, action: .startSimulation)
+        XCTAssertEqual(state.simulationPhase, .running)
+        XCTAssertEqual(state.simulationTick, 0)
+        XCTAssertEqual(state.lastRuntimeEvent?.code, .simulationStarted)
+        XCTAssertNil(state.lastRuntimeFault)
+
+        TopologyEditorReducer.reduce(state: &state, action: .startSimulation)
+        XCTAssertEqual(state.simulationPhase, .running)
+        XCTAssertEqual(state.simulationTick, 0)
+        XCTAssertEqual(state.lastRuntimeEvent?.code, .simulationStartIgnoredAlreadyRunning)
+        XCTAssertEqual(state.lastAction, "startSimulation")
+    }
+
+    func testSimulationTickMutatesOnlyRuntimeStateWhileRunning() {
+        var state = TopologyEditorState()
+        _ = addNode(kind: .pc, at: CGPoint(x: 50, y: 50), to: &state)
+
+        let graphSnapshot = state.graph
+        let selectedSnapshot = state.selectedNodeIDs
+        let activeToolSnapshot = state.activeTool
+        let pendingConnectionSnapshot = state.pendingConnection
+        let viewportSnapshot = state.viewport
+
+        TopologyEditorReducer.reduce(state: &state, action: .startSimulation)
+        TopologyEditorReducer.reduce(state: &state, action: .simulationTick(step: 3))
+
+        XCTAssertEqual(state.simulationPhase, .running)
+        XCTAssertEqual(state.simulationTick, 3)
+        XCTAssertEqual(state.lastRuntimeEvent?.code, .simulationTickAdvanced)
+        XCTAssertEqual(state.graph, graphSnapshot)
+        XCTAssertEqual(state.selectedNodeIDs, selectedSnapshot)
+        XCTAssertEqual(state.activeTool, activeToolSnapshot)
+        XCTAssertEqual(state.pendingConnection, pendingConnectionSnapshot)
+        XCTAssertEqual(state.viewport, viewportSnapshot)
+    }
+
+    func testSimulationTickWhileStoppedIsIgnored() {
+        var state = TopologyEditorState()
+
+        TopologyEditorReducer.reduce(state: &state, action: .simulationTick(step: 1))
+
+        XCTAssertEqual(state.simulationPhase, .stopped)
+        XCTAssertEqual(state.simulationTick, 0)
+        XCTAssertEqual(state.lastRuntimeEvent?.code, .simulationTickIgnoredWhileStopped)
+        XCTAssertNil(state.lastRuntimeFault)
+    }
+
+    func testSimulationTickWithMalformedPayloadDoesNotAdvanceTickAndSetsFault() {
+        var state = TopologyEditorState()
+
+        TopologyEditorReducer.reduce(state: &state, action: .startSimulation)
+        TopologyEditorReducer.reduce(state: &state, action: .simulationTick(step: 2))
+        let snapshotTick = state.simulationTick
+
+        TopologyEditorReducer.reduce(state: &state, action: .simulationTick(step: nil))
+
+        XCTAssertEqual(state.simulationTick, snapshotTick)
+        XCTAssertEqual(state.lastRuntimeEvent?.code, .simulationFaultRejectedMalformedPayload)
+        XCTAssertEqual(state.lastRuntimeFault?.category, .malformedRuntimePayload)
+        XCTAssertEqual(state.lastRuntimeFault?.code, "malformedRuntimePayload")
+    }
+
+    func testStopSimulationIsIdempotentAfterStartAndTick() {
+        var state = TopologyEditorState()
+
+        TopologyEditorReducer.reduce(state: &state, action: .startSimulation)
+        TopologyEditorReducer.reduce(state: &state, action: .simulationTick(step: 1))
+        TopologyEditorReducer.reduce(state: &state, action: .stopSimulation)
+
+        XCTAssertEqual(state.simulationPhase, .stopped)
+        XCTAssertEqual(state.simulationTick, 1)
+        XCTAssertEqual(state.lastRuntimeEvent?.code, .simulationStopped)
+
+        TopologyEditorReducer.reduce(state: &state, action: .stopSimulation)
+
+        XCTAssertEqual(state.simulationPhase, .stopped)
+        XCTAssertEqual(state.simulationTick, 1)
+        XCTAssertEqual(state.lastRuntimeEvent?.code, .simulationStopIgnoredAlreadyStopped)
+    }
+
     // MARK: - Helpers
 
     @discardableResult

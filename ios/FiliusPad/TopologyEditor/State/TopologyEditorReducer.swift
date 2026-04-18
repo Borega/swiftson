@@ -150,6 +150,92 @@ enum TopologyEditorReducer {
                 state.lastValidationError = validationError
             }
 
+        case .startSimulation:
+            guard state.simulationPhase != .running else {
+                recordRuntimeEvent(
+                    state: &state,
+                    code: .simulationStartIgnoredAlreadyRunning
+                )
+                return
+            }
+
+            state.simulationPhase = .running
+            state.lastRuntimeFault = nil
+            recordRuntimeEvent(state: &state, code: .simulationStarted)
+
+        case .stopSimulation:
+            guard state.simulationPhase != .stopped else {
+                recordRuntimeEvent(
+                    state: &state,
+                    code: .simulationStopIgnoredAlreadyStopped
+                )
+                return
+            }
+
+            state.simulationPhase = .stopped
+            recordRuntimeEvent(state: &state, code: .simulationStopped)
+
+        case let .simulationTick(step):
+            guard let step, step > 0 else {
+                setMalformedRuntimePayload(
+                    state: &state,
+                    reason: "simulationTick requires a positive step"
+                )
+                return
+            }
+
+            guard state.simulationPhase == .running else {
+                recordRuntimeEvent(
+                    state: &state,
+                    code: .simulationTickIgnoredWhileStopped,
+                    detail: "phase=\(state.simulationPhase.rawValue),step=\(step)"
+                )
+                return
+            }
+
+            let (nextTick, overflowed) = state.simulationTick.addingReportingOverflow(step)
+            guard !overflowed else {
+                state.lastRuntimeFault = TopologyRuntimeFault(
+                    category: .runtimeFault,
+                    code: "tickOverflow",
+                    message: "Simulation tick overflowed UInt64 capacity"
+                )
+                recordRuntimeEvent(
+                    state: &state,
+                    code: .simulationFaultReported,
+                    detail: "tickOverflow"
+                )
+                return
+            }
+
+            state.simulationTick = nextTick
+            state.lastRuntimeFault = nil
+            recordRuntimeEvent(
+                state: &state,
+                code: .simulationTickAdvanced,
+                detail: "step=\(step)"
+            )
+
+        case let .simulationFault(code, message):
+            guard let normalizedCode = normalizedRuntimeValue(code) else {
+                setMalformedRuntimePayload(
+                    state: &state,
+                    reason: "simulationFault requires a non-empty code"
+                )
+                return
+            }
+
+            state.lastRuntimeFault = TopologyRuntimeFault(
+                category: .runtimeFault,
+                code: normalizedCode,
+                message: normalizedRuntimeValue(message) ?? "unspecified"
+            )
+            recordRuntimeEvent(
+                state: &state,
+                code: .simulationFaultReported,
+                detail: normalizedCode
+            )
+
         case let .moveSelectedNodes(delta):
             guard let delta else {
                 state.lastValidationError = .malformedActionPayload
@@ -185,6 +271,34 @@ enum TopologyEditorReducer {
 
             state.viewport = state.viewport.zoomed(by: scaleDelta, anchor: anchor)
         }
+    }
+
+    private static func recordRuntimeEvent(
+        state: inout TopologyEditorState,
+        code: TopologyRuntimeEventCode,
+        detail: String? = nil
+    ) {
+        state.lastRuntimeEvent = TopologyRuntimeEvent(code: code, detail: detail)
+    }
+
+    private static func setMalformedRuntimePayload(state: inout TopologyEditorState, reason: String) {
+        state.lastRuntimeFault = TopologyRuntimeFault(
+            category: .malformedRuntimePayload,
+            code: "malformedRuntimePayload",
+            message: reason
+        )
+        recordRuntimeEvent(
+            state: &state,
+            code: .simulationFaultRejectedMalformedPayload,
+            detail: reason
+        )
+    }
+
+    private static func normalizedRuntimeValue(_ value: String?) -> String? {
+        guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else {
+            return nil
+        }
+        return trimmed
     }
 
     private static func areCompatibleEndpoints(_ sourceNode: TopologyNode, _ targetNode: TopologyNode) -> Bool {
@@ -265,6 +379,14 @@ private extension TopologyEditorAction {
             return "startConnection"
         case .completeConnection:
             return "completeConnection"
+        case .startSimulation:
+            return "startSimulation"
+        case .stopSimulation:
+            return "stopSimulation"
+        case .simulationTick:
+            return "simulationTick"
+        case .simulationFault:
+            return "simulationFault"
         case .moveSelectedNodes:
             return "moveSelectedNodes"
         case .panCanvas:

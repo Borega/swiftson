@@ -93,6 +93,70 @@ final class TopologyEditorDiagnosticsTests: XCTestCase {
         XCTAssertNotNil(state.lastActionAt)
     }
 
+    func testRuntimeFaultIsInspectableAndPreservesPhaseAndTick() {
+        var state = TopologyEditorState()
+
+        TopologyEditorReducer.reduce(state: &state, action: .startSimulation)
+        TopologyEditorReducer.reduce(state: &state, action: .simulationTick(step: 2))
+
+        let phaseSnapshot = state.simulationPhase
+        let tickSnapshot = state.simulationTick
+
+        TopologyEditorReducer.reduce(
+            state: &state,
+            action: .simulationFault(code: "runtimeDependencyDown", message: "scheduler queue unavailable")
+        )
+
+        XCTAssertEqual(state.simulationPhase, phaseSnapshot)
+        XCTAssertEqual(state.simulationTick, tickSnapshot)
+        XCTAssertEqual(state.lastRuntimeFault?.category, .runtimeFault)
+        XCTAssertEqual(state.lastRuntimeFault?.code, "runtimeDependencyDown")
+        XCTAssertEqual(state.lastRuntimeFault?.message, "scheduler queue unavailable")
+        XCTAssertEqual(state.lastRuntimeEvent?.code, .simulationFaultReported)
+        XCTAssertEqual(state.lastRuntimeEvent?.detail, "runtimeDependencyDown")
+        XCTAssertEqual(state.lastAction, "simulationFault")
+    }
+
+    func testMalformedRuntimeFaultPayloadDoesNotAdvanceTickAndUsesDeterministicFaultCode() {
+        var state = TopologyEditorState()
+
+        TopologyEditorReducer.reduce(state: &state, action: .startSimulation)
+        TopologyEditorReducer.reduce(state: &state, action: .simulationTick(step: 3))
+        let phaseSnapshot = state.simulationPhase
+        let tickSnapshot = state.simulationTick
+
+        TopologyEditorReducer.reduce(
+            state: &state,
+            action: .simulationFault(code: nil, message: "ignored")
+        )
+
+        XCTAssertEqual(state.simulationPhase, phaseSnapshot)
+        XCTAssertEqual(state.simulationTick, tickSnapshot)
+        XCTAssertEqual(state.lastRuntimeFault?.category, .malformedRuntimePayload)
+        XCTAssertEqual(state.lastRuntimeFault?.code, "malformedRuntimePayload")
+        XCTAssertEqual(state.lastRuntimeEvent?.code, .simulationFaultRejectedMalformedPayload)
+        XCTAssertEqual(state.lastAction, "simulationFault")
+    }
+
+    func testRuntimeFaultThenRecoverClearsFaultOnNextStart() {
+        var state = TopologyEditorState()
+
+        TopologyEditorReducer.reduce(state: &state, action: .startSimulation)
+        TopologyEditorReducer.reduce(
+            state: &state,
+            action: .simulationFault(code: "runtimeDependencyDown", message: "temporary")
+        )
+        XCTAssertEqual(state.lastRuntimeFault?.category, .runtimeFault)
+
+        TopologyEditorReducer.reduce(state: &state, action: .stopSimulation)
+        TopologyEditorReducer.reduce(state: &state, action: .startSimulation)
+
+        XCTAssertEqual(state.simulationPhase, .running)
+        XCTAssertNil(state.lastRuntimeFault)
+        XCTAssertEqual(state.lastRuntimeEvent?.code, .simulationStarted)
+        XCTAssertEqual(state.lastAction, "startSimulation")
+    }
+
     // MARK: - Helpers
 
     @discardableResult
