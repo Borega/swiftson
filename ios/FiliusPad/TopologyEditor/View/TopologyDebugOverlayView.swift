@@ -160,12 +160,9 @@ struct TopologyDebugOverlayView: View {
         }
 
         let prefix: String
-        switch state.lastRecoverySucceeded {
-        case true:
-            prefix = "success"
-        case false:
-            prefix = "failure"
-        case nil:
+        if let lastRecoverySucceeded = state.lastRecoverySucceeded {
+            prefix = lastRecoverySucceeded ? "success" : "failure"
+        } else {
             prefix = "unknown"
         }
 
