@@ -261,6 +261,55 @@ final class TopologyEditorDiagnosticsTests: XCTestCase {
         XCTAssertTrue(state.lastRuntimeFault?.message.contains("nmap") ?? false)
     }
 
+    func testTraceTwentyNodeDiagnosticsContractPublishesDeterministicRouteWithoutTickMutation() {
+        let phaseTag = "[M002/S03/T03 tests]"
+        var state = TopologyEditorState()
+
+        var pathNodeIDs: [UUID] = []
+        let sourceNodeID = addNode(kind: .pc, at: CGPoint(x: 20, y: 20), to: &state)
+        pathNodeIDs.append(sourceNodeID)
+
+        for index in 1...18 {
+            let switchNodeID = addNode(
+                kind: .networkSwitch,
+                at: CGPoint(x: CGFloat(20 + (index * 20)), y: index.isMultiple(of: 2) ? 20 : 120),
+                to: &state
+            )
+            pathNodeIDs.append(switchNodeID)
+        }
+
+        let targetNodeID = addNode(kind: .pc, at: CGPoint(x: 420, y: 20), to: &state)
+        pathNodeIDs.append(targetNodeID)
+
+        for (source, destination) in zip(pathNodeIDs, pathNodeIDs.dropFirst()) {
+            connect(source, destination, state: &state)
+        }
+
+        saveRuntimeIP(nodeID: sourceNodeID, ipAddress: "10.30.0.10", subnetMask: "255.255.255.0", state: &state)
+        saveRuntimeIP(nodeID: targetNodeID, ipAddress: "10.30.0.20", subnetMask: "255.255.255.0", state: &state)
+
+        TopologyEditorReducer.reduce(state: &state, action: .startSimulation)
+        TopologyEditorReducer.reduce(state: &state, action: .simulationTick(step: 9))
+        let tickSnapshot = state.simulationTick
+
+        TopologyEditorReducer.reduce(state: &state, action: .executePing(nodeID: sourceNodeID, command: "trace 10.30.0.20"))
+
+        XCTAssertEqual(state.lastRuntimeEvent?.code, .traceSucceeded, "\(phaseTag) expected trace success over 20-node diagnostics fixture")
+        let detail = state.lastRuntimeEvent?.detail ?? ""
+        let expectedPath = pathNodeIDs.map(\.uuidString).joined(separator: "->")
+
+        XCTAssertTrue(detail.contains("command=trace"), "\(phaseTag) expected runtime event to include command attribution")
+        XCTAssertTrue(detail.contains("targetIP=10.30.0.20"), "\(phaseTag) expected runtime event to include target attribution")
+        XCTAssertTrue(detail.contains("hops=19"), "\(phaseTag) expected runtime event to include 19-hop depth metadata")
+        XCTAssertTrue(detail.contains("latencyMs=78"), "\(phaseTag) expected runtime event to include deterministic latency metadata")
+        XCTAssertTrue(detail.contains("path=\(expectedPath)"), "\(phaseTag) expected runtime event to include full path metadata")
+
+        XCTAssertEqual(state.simulationTick, tickSnapshot, "\(phaseTag) trace command should not mutate simulation tick")
+        XCTAssertNil(state.lastRuntimeFault)
+        XCTAssertNil(state.lastPingEvent)
+        XCTAssertNil(state.lastPingFault)
+    }
+
     func testPersistenceFailureMetadataIsInspectableAndDismissible() {
         var state = TopologyEditorState()
         state.recordPersistenceFailure(

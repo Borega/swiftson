@@ -608,6 +608,62 @@ final class TopologyEditorReducerTests: XCTestCase {
         XCTAssertNil(state.lastPingEvent)
     }
 
+    func testExecuteTraceTwentyNodeRuntimeDepthContractIsDeterministic() {
+        let phaseTag = "[M002/S03/T03 tests]"
+        var state = TopologyEditorState()
+
+        var pathNodeIDs: [UUID] = []
+        let sourceNodeID = addNode(kind: .pc, at: CGPoint(x: 20, y: 20), to: &state)
+        pathNodeIDs.append(sourceNodeID)
+
+        for index in 1...18 {
+            let switchNodeID = addNode(
+                kind: .networkSwitch,
+                at: CGPoint(x: CGFloat(20 + (index * 20)), y: index.isMultiple(of: 2) ? 20 : 120),
+                to: &state
+            )
+            pathNodeIDs.append(switchNodeID)
+        }
+
+        let targetNodeID = addNode(kind: .pc, at: CGPoint(x: 420, y: 20), to: &state)
+        pathNodeIDs.append(targetNodeID)
+
+        for (source, destination) in zip(pathNodeIDs, pathNodeIDs.dropFirst()) {
+            connect(source, destination, state: &state)
+        }
+
+        saveRuntimeIP(nodeID: sourceNodeID, ipAddress: "10.20.0.10", subnetMask: "255.255.255.0", state: &state)
+        saveRuntimeIP(nodeID: targetNodeID, ipAddress: "10.20.0.20", subnetMask: "255.255.255.0", state: &state)
+
+        TopologyEditorReducer.reduce(state: &state, action: .startSimulation)
+        let tickSnapshot = state.simulationTick
+
+        TopologyEditorReducer.reduce(state: &state, action: .executePing(nodeID: sourceNodeID, command: "trace 10.20.0.20"))
+
+        XCTAssertEqual(state.lastRuntimeEvent?.code, .traceSucceeded, "\(phaseTag) expected trace success over 20-node chain")
+
+        let detail = tryUnwrap(state.lastRuntimeEvent?.detail)
+        let expectedPath = pathNodeIDs.map(\.uuidString).joined(separator: "->")
+
+        XCTAssertTrue(detail.contains("command=trace"), "\(phaseTag) runtime detail should record trace command")
+        XCTAssertTrue(detail.contains("targetIP=10.20.0.20"), "\(phaseTag) runtime detail should retain target attribution")
+        XCTAssertTrue(detail.contains("hops=19"), "\(phaseTag) deterministic chain should produce 19 hops")
+        XCTAssertTrue(detail.contains("latencyMs=78"), "\(phaseTag) deterministic latency should scale with hop count")
+        XCTAssertTrue(detail.contains("path=\(expectedPath)"), "\(phaseTag) runtime detail should expose full path metadata")
+
+        XCTAssertEqual(state.simulationTick, tickSnapshot, "\(phaseTag) trace execution should not mutate simulation tick directly")
+        XCTAssertNil(state.lastRuntimeFault)
+        XCTAssertNil(state.lastPingEvent)
+
+        XCTAssertEqual(
+            Array(state.runtimeConsoleEntriesByNodeID[sourceNodeID]?.suffix(2) ?? []),
+            [
+                "Trace to 10.20.0.20 succeeded (hops=19, latencyMs=78)",
+                "Path: \(pathNodeIDs.map(\.uuidString).joined(separator: " -> "))"
+            ]
+        )
+    }
+
     func testShortestPathHopCountReturnsExpectedHopsForLinearTopology() {
         var state = TopologyEditorState()
 

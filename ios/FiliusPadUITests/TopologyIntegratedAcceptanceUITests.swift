@@ -15,6 +15,32 @@ final class TopologyIntegratedAcceptanceUITests: XCTestCase {
         static let switch2 = CGVector(dx: 0.42, dy: 0.55)
         static let switch3 = CGVector(dx: 0.62, dy: 0.55)
         static let switch4 = CGVector(dx: 0.78, dy: 0.55)
+
+        static let runtimeDepthPCs: [CGVector] = [
+            CGVector(dx: 0.08, dy: 0.18),
+            CGVector(dx: 0.16, dy: 0.18),
+            CGVector(dx: 0.24, dy: 0.18),
+            CGVector(dx: 0.32, dy: 0.18),
+            CGVector(dx: 0.40, dy: 0.18),
+            CGVector(dx: 0.48, dy: 0.18),
+            CGVector(dx: 0.56, dy: 0.18),
+            CGVector(dx: 0.64, dy: 0.18),
+            CGVector(dx: 0.72, dy: 0.18),
+            CGVector(dx: 0.80, dy: 0.18)
+        ]
+
+        static let runtimeDepthSwitches: [CGVector] = [
+            CGVector(dx: 0.08, dy: 0.62),
+            CGVector(dx: 0.16, dy: 0.62),
+            CGVector(dx: 0.24, dy: 0.62),
+            CGVector(dx: 0.32, dy: 0.62),
+            CGVector(dx: 0.40, dy: 0.62),
+            CGVector(dx: 0.48, dy: 0.62),
+            CGVector(dx: 0.56, dy: 0.62),
+            CGVector(dx: 0.64, dy: 0.62),
+            CGVector(dx: 0.72, dy: 0.62),
+            CGVector(dx: 0.80, dy: 0.62)
+        ]
     }
 
     private var app: XCUIApplication!
@@ -52,7 +78,7 @@ final class TopologyIntegratedAcceptanceUITests: XCTestCase {
         waitForDiagnosticContains("debug.simulationPhase", expectedSubstring: "running", timeout: 3)
         assertRuntimeControlState(startEnabled: false, stopEnabled: true)
 
-        assertRuntimeControlsRemainResponsiveAtScale()
+        assertRuntimeControlsRemainResponsiveAtScale(scaleDescriptor: "~10-node")
 
         // Boundary condition: repeated runtime sheet open/close under ~10-node load.
         openRuntimeDevice(at: CanvasPoint.pc1)
@@ -133,6 +159,55 @@ final class TopologyIntegratedAcceptanceUITests: XCTestCase {
         closeRuntimeDeviceSheet()
     }
 
+    func testTwentyNodeRuntimeDepthTraceContractsRemainDeterministic() {
+        let phaseTag = "[M002/S03/T03 tests]"
+        let autosaveURL = makeAutosaveURL()
+
+        app = launchApp(
+            autosaveURL: autosaveURL,
+            clearExistingAutosave: true,
+            additionalArguments: ["-ui-testing"]
+        )
+
+        seedTwentyNodeRuntimeDepthTopology()
+
+        XCTAssertEqual(label(for: "debug.nodeCount"), "Nodes: 20", "\(phaseTag) expected deterministic 20-node fixture")
+        XCTAssertEqual(label(for: "debug.linkCount"), "Links: 19", "\(phaseTag) expected deterministic 19-link chain")
+
+        tapButton("runtime.control.start")
+        waitForDiagnosticContains("debug.simulationPhase", expectedSubstring: "running", timeout: 3)
+        assertRuntimeControlState(startEnabled: false, stopEnabled: true)
+
+        assertRuntimeControlsRemainResponsiveAtScale(scaleDescriptor: "~20-node")
+
+        let sourcePoint = CanvasPoint.runtimeDepthPCs[0]
+        let targetPoint = CanvasPoint.runtimeDepthSwitches[9]
+
+        openRuntimeDevice(at: sourcePoint)
+        saveRuntimeConfiguration(ip: "10.2.0.10", subnet: "255.255.255.0")
+        closeRuntimeDeviceSheet()
+
+        openRuntimeDevice(at: targetPoint)
+        saveRuntimeConfiguration(ip: "10.2.0.20", subnet: "255.255.255.0")
+        closeRuntimeDeviceSheet()
+
+        openRuntimeDevice(at: sourcePoint)
+        executeCommand("trace 10.2.0.20")
+
+        waitForDiagnosticContains("debug.lastRuntimeEvent", expectedSubstring: "traceSucceeded", timeout: 3)
+        assertDiagnosticContains("debug.lastRuntimeRoute", expectedSubstring: "command=trace")
+        assertDiagnosticContains("debug.lastRuntimeRoute", expectedSubstring: "targetIP=10.2.0.20")
+        assertDiagnosticContains("debug.lastRuntimeRoute", expectedSubstring: "hops=19")
+        assertDiagnosticContains("debug.lastRuntimeRoute", expectedSubstring: "latencyMs=78")
+        assertDiagnosticContains("debug.lastRuntimeFault", expectedSubstring: "none")
+
+        assertAnyConsoleLineContains("Trace to 10.2.0.20 succeeded (hops=19, latencyMs=78)")
+        assertAnyConsoleLineContains("Path: ")
+        assertRuntimeConsoleCount(atLeast: 3)
+
+        closeRuntimeDeviceSheet()
+    }
+
     // MARK: - Helpers
 
     @discardableResult
@@ -164,6 +239,9 @@ final class TopologyIntegratedAcceptanceUITests: XCTestCase {
         _ = requireElement(app.staticTexts["debug.linkCount"], named: "debug.linkCount")
         _ = requireElement(app.staticTexts["debug.simulationPhase"], named: "debug.simulationPhase")
         _ = requireElement(app.staticTexts["debug.simulationTick"], named: "debug.simulationTick")
+        _ = requireElement(app.staticTexts["debug.lastRuntimeEvent"], named: "debug.lastRuntimeEvent")
+        _ = requireElement(app.staticTexts["debug.lastRuntimeRoute"], named: "debug.lastRuntimeRoute")
+        _ = requireElement(app.staticTexts["debug.lastRuntimeFault"], named: "debug.lastRuntimeFault")
         _ = requireElement(app.staticTexts["debug.lastPingEvent"], named: "debug.lastPingEvent")
         _ = requireElement(app.staticTexts["debug.lastPingFault"], named: "debug.lastPingFault")
         _ = requireElement(app.staticTexts["debug.runtimeConsoleCount"], named: "debug.runtimeConsoleCount")
@@ -210,10 +288,34 @@ final class TopologyIntegratedAcceptanceUITests: XCTestCase {
         connectNodes(from: CanvasPoint.switch3, to: CanvasPoint.switch4)
     }
 
-    private func assertRuntimeControlsRemainResponsiveAtScale() {
+    private func seedTwentyNodeRuntimeDepthTopology() {
+        for point in CanvasPoint.runtimeDepthPCs {
+            tapButton("palette.tool.place.pc")
+            tapCanvas(at: point)
+        }
+
+        for point in CanvasPoint.runtimeDepthSwitches {
+            tapButton("palette.tool.place.switch")
+            tapCanvas(at: point)
+        }
+
+        tapButton("palette.tool.connect")
+        connectNodes(from: CanvasPoint.runtimeDepthPCs[0], to: CanvasPoint.runtimeDepthSwitches[0])
+
+        for index in 1..<CanvasPoint.runtimeDepthPCs.count {
+            connectNodes(from: CanvasPoint.runtimeDepthSwitches[index - 1], to: CanvasPoint.runtimeDepthPCs[index])
+            connectNodes(from: CanvasPoint.runtimeDepthPCs[index], to: CanvasPoint.runtimeDepthSwitches[index])
+        }
+    }
+
+    private func assertRuntimeControlsRemainResponsiveAtScale(scaleDescriptor: String) {
         let runningTick = simulationTickValue()
         let advancedTick = waitForTickAdvance(from: runningTick, timeout: 2)
-        XCTAssertGreaterThan(advancedTick, runningTick, "Simulation tick should advance while running at ~10-node scale")
+        XCTAssertGreaterThan(
+            advancedTick,
+            runningTick,
+            "Simulation tick should advance while running at \(scaleDescriptor)"
+        )
 
         tapButton("runtime.control.stop")
         waitForDiagnosticContains("debug.simulationPhase", expectedSubstring: "stopped", timeout: 3)

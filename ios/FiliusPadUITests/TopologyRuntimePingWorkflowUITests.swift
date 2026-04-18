@@ -16,6 +16,9 @@ final class TopologyRuntimePingWorkflowUITests: XCTestCase {
         _ = requireElement(app.buttons["palette.tool.connect"], named: "palette.tool.connect")
         _ = requireElement(app.buttons["runtime.control.start"], named: "runtime.control.start")
         _ = requireElement(app.staticTexts["debug.simulationPhase"], named: "debug.simulationPhase")
+        _ = requireElement(app.staticTexts["debug.lastRuntimeEvent"], named: "debug.lastRuntimeEvent")
+        _ = requireElement(app.staticTexts["debug.lastRuntimeRoute"], named: "debug.lastRuntimeRoute")
+        _ = requireElement(app.staticTexts["debug.lastRuntimeFault"], named: "debug.lastRuntimeFault")
         _ = requireElement(app.staticTexts["debug.lastPingEvent"], named: "debug.lastPingEvent")
         _ = requireElement(app.staticTexts["debug.lastPingFault"], named: "debug.lastPingFault")
         _ = requireElement(app.staticTexts["debug.openedRuntimeDevice"], named: "debug.openedRuntimeDevice")
@@ -57,6 +60,34 @@ final class TopologyRuntimePingWorkflowUITests: XCTestCase {
         assertDiagnosticContains("debug.lastPingEvent", expectedSubstring: "pingRejectedUnknownTarget")
         assertDiagnosticContains("debug.lastPingFault", expectedSubstring: "pingTargetUnknown")
         assertAnyConsoleLineContains("Ping failed: pingTargetUnknown")
+    }
+
+    func testTraceCommandPublishesPathAwareRuntimeDiagnostics() {
+        seedReachableTwoPcTopology()
+
+        tapButton("runtime.control.start")
+        assertDiagnosticContains("debug.simulationPhase", expectedSubstring: "running")
+
+        openRuntimeDevice(at: CGVector(dx: 0.25, dy: 0.30))
+        saveRuntimeConfiguration(ip: "192.168.10.10", subnet: "255.255.255.0")
+        closeRuntimeDeviceSheet()
+
+        openRuntimeDevice(at: CGVector(dx: 0.70, dy: 0.30))
+        saveRuntimeConfiguration(ip: "192.168.10.11", subnet: "255.255.255.0")
+        closeRuntimeDeviceSheet()
+
+        openRuntimeDevice(at: CGVector(dx: 0.25, dy: 0.30))
+        executeCommand("trace 192.168.10.11")
+
+        assertDiagnosticContains("debug.lastRuntimeEvent", expectedSubstring: "traceSucceeded")
+        assertDiagnosticContains("debug.lastRuntimeRoute", expectedSubstring: "command=trace")
+        assertDiagnosticContains("debug.lastRuntimeRoute", expectedSubstring: "targetIP=192.168.10.11")
+        assertDiagnosticContains("debug.lastRuntimeRoute", expectedSubstring: "hops=2")
+        assertDiagnosticContains("debug.lastRuntimeRoute", expectedSubstring: "latencyMs=10")
+        assertDiagnosticContains("debug.lastRuntimeFault", expectedSubstring: "none")
+
+        assertAnyConsoleLineContains("Trace to 192.168.10.11 succeeded (hops=2, latencyMs=10)")
+        assertAnyConsoleLineContains("Path: ")
     }
 
     // MARK: - Helpers
