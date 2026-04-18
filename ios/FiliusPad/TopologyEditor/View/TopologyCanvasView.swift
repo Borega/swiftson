@@ -80,6 +80,9 @@ struct TopologyCanvasView: View {
         .background(nodeBackground(for: node.kind, isSelected: isSelected))
         .position(screenPosition)
         .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityNodeLabel(for: node.kind))
+        .accessibilityHint(state.simulationPhase == .running ? "Opens runtime device panel" : "Topology node")
+        .accessibilityAddTraits(state.simulationPhase == .running ? .isButton : [])
         .accessibilityIdentifier("canvas.node.\(node.id.uuidString)")
         .highPriorityGesture(
             DragGesture(minimumDistance: 6)
@@ -139,6 +142,17 @@ struct TopologyCanvasView: View {
             return "SW"
         case .unsupported:
             return "?"
+        }
+    }
+
+    private func accessibilityNodeLabel(for kind: TopologyNodeKind) -> String {
+        switch kind {
+        case .pc:
+            return "PC node"
+        case .networkSwitch:
+            return "Switch node"
+        case .unsupported:
+            return "Unsupported node"
         }
     }
 

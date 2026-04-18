@@ -63,6 +63,10 @@ struct TopologyPaletteView: View {
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
+    private var isEditingEnabled: Bool {
+        simulationPhase == .stopped
+    }
+
     private func toolButton(title: String, mode: TopologyEditorToolMode, identifier: String) -> some View {
         let isSelected = activeTool == mode
 
@@ -77,8 +81,10 @@ struct TopologyPaletteView: View {
                 .background(isSelected ? Color.accentColor : Color.secondary.opacity(0.15))
                 .foregroundStyle(isSelected ? Color.white : Color.primary)
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .opacity(isEditingEnabled ? 1 : 0.45)
         }
         .buttonStyle(.plain)
+        .disabled(!isEditingEnabled)
         .accessibilityIdentifier(identifier)
     }
 

@@ -23,11 +23,23 @@ struct TopologyDebugOverlayView: View {
             Text("Simulation tick: \(state.simulationTick)")
                 .accessibilityIdentifier("debug.simulationTick")
 
+            Text("Opened runtime device: \(state.openedRuntimeDeviceID?.uuidString ?? "none")")
+                .accessibilityIdentifier("debug.openedRuntimeDevice")
+
             Text("Last runtime event: \(debugRuntimeEvent(state.lastRuntimeEvent))")
                 .accessibilityIdentifier("debug.lastRuntimeEvent")
 
             Text("Last runtime fault: \(debugRuntimeFault(state.lastRuntimeFault))")
                 .accessibilityIdentifier("debug.lastRuntimeFault")
+
+            Text("Last ping event: \(debugRuntimeEvent(state.lastPingEvent))")
+                .accessibilityIdentifier("debug.lastPingEvent")
+
+            Text("Last ping fault: \(debugRuntimeFault(state.lastPingFault))")
+                .accessibilityIdentifier("debug.lastPingFault")
+
+            Text("Opened runtime console entries: \(openedRuntimeConsoleCount)")
+                .accessibilityIdentifier("debug.runtimeConsoleCount")
 
             Text(
                 String(
@@ -56,6 +68,14 @@ struct TopologyDebugOverlayView: View {
         .padding(10)
         .background(Color(uiColor: .secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    private var openedRuntimeConsoleCount: Int {
+        guard let openedRuntimeDeviceID = state.openedRuntimeDeviceID else {
+            return 0
+        }
+
+        return state.runtimeConsoleEntriesByNodeID[openedRuntimeDeviceID]?.count ?? 0
     }
 
     private func debugToolName(_ mode: TopologyEditorToolMode) -> String {

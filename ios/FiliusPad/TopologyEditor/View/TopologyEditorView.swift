@@ -40,6 +40,9 @@ struct TopologyEditorView: View {
         }
         .padding(16)
         .background(Color(uiColor: .systemGroupedBackground))
+        .sheet(item: runtimeDeviceSheetBinding) { item in
+            runtimeDeviceSheet(for: item.id)
+        }
         .onAppear {
             handleSimulationPhaseChange(state.simulationPhase)
         }
@@ -52,6 +55,50 @@ struct TopologyEditorView: View {
                 send(.stopSimulation)
             }
         }
+    }
+
+    private var runtimeDeviceSheetBinding: Binding<RuntimeDeviceSheetItem?> {
+        Binding(
+            get: {
+                guard let nodeID = state.openedRuntimeDeviceID,
+                      state.graph.containsNode(id: nodeID)
+                else {
+                    return nil
+                }
+
+                return RuntimeDeviceSheetItem(id: nodeID)
+            },
+            set: { newValue in
+                guard let newValue else {
+                    send(.closeRuntimeDevice)
+                    return
+                }
+
+                send(.openRuntimeDevice(nodeID: newValue.id))
+            }
+        )
+    }
+
+    @ViewBuilder
+    private func runtimeDeviceSheet(for nodeID: UUID) -> some View {
+        let node = state.graph.node(withID: nodeID)
+
+        TopologyRuntimeDeviceSheet(
+            nodeID: nodeID,
+            nodeKind: node?.kind ?? .unsupported,
+            configuration: state.runtimeDeviceConfigurations[nodeID],
+            consoleEntries: state.runtimeConsoleEntriesByNodeID[nodeID] ?? [],
+            onSaveConfiguration: { ipAddress, subnetMask in
+                send(.saveRuntimeDeviceIP(nodeID: nodeID, ipAddress: ipAddress, subnetMask: subnetMask))
+            },
+            onExecuteCommand: { command in
+                send(.executePing(nodeID: nodeID, command: command))
+            },
+            onClose: {
+                send(.closeRuntimeDevice)
+            }
+        )
+        .presentationDetents([.medium, .large])
     }
 
     private func setToolMode(_ mode: TopologyEditorToolMode) {
@@ -114,6 +161,15 @@ struct TopologyEditorView: View {
     private func handleCanvasTap(_ screenPoint: CGPoint) {
         let hitNodeID = state.viewport.hitTestNode(atScreenPoint: screenPoint, nodes: state.graph.nodes)
 
+        if state.simulationPhase == .running {
+            guard let hitNodeID else {
+                return
+            }
+
+            send(.openRuntimeDevice(nodeID: hitNodeID))
+            return
+        }
+
         switch state.activeTool {
         case let .place(kind):
             let worldPoint = state.viewport.screenToWorld(screenPoint)
@@ -143,7 +199,9 @@ struct TopologyEditorView: View {
     }
 
     private func handleNodeDragChanged(nodeID: UUID, translation: CGSize) {
-        guard state.activeTool == .select else {
+        guard state.simulationPhase == .stopped,
+              state.activeTool == .select
+        else {
             return
         }
 
@@ -179,7 +237,9 @@ struct TopologyEditorView: View {
     }
 
     private func handleCanvasPan(_ delta: CGSize) {
-        guard !nodeDragInFlight else {
+        guard state.simulationPhase == .stopped,
+              !nodeDragInFlight
+        else {
             return
         }
 
@@ -195,4 +255,8 @@ struct TopologyEditorView: View {
         TopologyEditorReducer.reduce(state: &snapshot, action: action)
         state = snapshot
     }
+}
+
+private struct RuntimeDeviceSheetItem: Identifiable, Equatable {
+    let id: UUID
 }

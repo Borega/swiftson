@@ -1,3 +1,4 @@
+import CoreGraphics
 import XCTest
 
 final class TopologySimulationRuntimeUITests: XCTestCase {
@@ -14,6 +15,8 @@ final class TopologySimulationRuntimeUITests: XCTestCase {
         _ = requireElement(app.staticTexts["debug.simulationPhase"], named: "debug.simulationPhase")
         _ = requireElement(app.staticTexts["debug.simulationTick"], named: "debug.simulationTick")
         _ = requireElement(app.staticTexts["debug.lastRuntimeEvent"], named: "debug.lastRuntimeEvent")
+        _ = requireElement(app.staticTexts["debug.lastPingEvent"], named: "debug.lastPingEvent")
+        _ = requireElement(app.staticTexts["debug.lastPingFault"], named: "debug.lastPingFault")
     }
 
     func testRuntimeStartStopAdvancesAndFreezesTick() {
@@ -77,6 +80,44 @@ final class TopologySimulationRuntimeUITests: XCTestCase {
         }
     }
 
+    func testRunningTapOpensRuntimeDeviceSheetAndReportsMalformedPingDiagnostics() {
+        tapButton("palette.tool.place.pc")
+        tapCanvas(at: CGVector(dx: 0.35, dy: 0.35))
+
+        tapButton("runtime.control.start")
+        assertDiagnosticEquals("debug.simulationPhase", expected: "Simulation phase: running")
+
+        tapCanvas(at: CGVector(dx: 0.35, dy: 0.35))
+        _ = requireElement(app.otherElements["runtime.device.sheet"], named: "runtime.device.sheet")
+
+        replaceTextField("runtime.device.ip", with: "192.168.0.10")
+        replaceTextField("runtime.device.subnet", with: "255.255.255.0")
+        tapButton("runtime.device.save")
+
+        XCTAssertTrue(
+            label(for: "debug.lastRuntimeEvent").contains("runtimeDeviceIPSaved"),
+            "Saving IP should emit runtimeDeviceIPSaved diagnostics"
+        )
+
+        replaceTextField("runtime.device.command", with: "ping")
+        tapButton("runtime.device.execute")
+
+        XCTAssertTrue(
+            label(for: "debug.lastPingEvent").contains("pingRejectedMalformedCommand"),
+            "Malformed ping command should emit pingRejectedMalformedCommand diagnostics"
+        )
+        XCTAssertTrue(
+            label(for: "debug.lastPingFault").contains("malformedPingCommand"),
+            "Malformed ping command should expose deterministic fault code"
+        )
+
+        tapButton("runtime.device.close")
+        XCTAssertFalse(
+            app.otherElements["runtime.device.sheet"].exists,
+            "Runtime sheet should close after tapping Done"
+        )
+    }
+
     // MARK: - Helpers
 
     @discardableResult
@@ -96,6 +137,27 @@ final class TopologySimulationRuntimeUITests: XCTestCase {
         let button = requireElement(app.buttons[identifier], named: identifier)
         XCTAssertTrue(button.isEnabled, "Button '\(identifier)' must be enabled before tapping")
         button.tap()
+    }
+
+    private func tapCanvas(at normalizedOffset: CGVector) {
+        let canvas = requireElement(app.otherElements["canvas.surface"], named: "canvas.surface")
+        canvas.coordinate(withNormalizedOffset: normalizedOffset).tap()
+    }
+
+    private func replaceTextField(_ identifier: String, with text: String) {
+        let field = requireElement(app.textFields[identifier], named: identifier)
+        field.tap()
+
+        if let currentValue = field.value as? String, !currentValue.isEmpty {
+            field.press(forDuration: 0.5)
+            let selectAll = app.menuItems["Select All"]
+            if selectAll.waitForExistence(timeout: 1) {
+                selectAll.tap()
+            }
+            field.typeText(XCUIKeyboardKey.delete.rawValue)
+        }
+
+        field.typeText(text)
     }
 
     private func assertDiagnosticEquals(_ identifier: String, expected: String) {
