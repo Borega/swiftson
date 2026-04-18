@@ -33,7 +33,9 @@ struct TopologyPaletteView: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
+            .accessibilityIdentifier("palette.toolbar.content")
         }
+        .accessibilityIdentifier("palette.toolbar")
         .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }

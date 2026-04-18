@@ -22,6 +22,8 @@
 		A12300000000000000000001 /* TopologyPaletteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21200000000000000000013 /* TopologyPaletteView.swift */; };
 		A12400000000000000000001 /* ViewportTransform.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21200000000000000000014 /* ViewportTransform.swift */; };
 		A12500000000000000000001 /* ViewportTransformTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21200000000000000000015 /* ViewportTransformTests.swift */; };
+		A12600000000000000000001 /* TopologyDebugOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21200000000000000000016 /* TopologyDebugOverlayView.swift */; };
+		A12700000000000000000001 /* TopologyEditorTouchFlowUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21200000000000000000017 /* TopologyEditorTouchFlowUITests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -57,6 +59,8 @@
 		A21200000000000000000013 /* TopologyPaletteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopologyPaletteView.swift; sourceTree = "<group>"; };
 		A21200000000000000000014 /* ViewportTransform.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewportTransform.swift; sourceTree = "<group>"; };
 		A21200000000000000000015 /* ViewportTransformTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewportTransformTests.swift; sourceTree = "<group>"; };
+		A21200000000000000000016 /* TopologyDebugOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopologyDebugOverlayView.swift; sourceTree = "<group>"; };
+		A21200000000000000000017 /* TopologyEditorTouchFlowUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopologyEditorTouchFlowUITests.swift; sourceTree = "<group>"; };
 		A21300000000000000000001 /* FiliusPad.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FiliusPad.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A21300000000000000000002 /* FiliusPadTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FiliusPadTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A21300000000000000000003 /* FiliusPadUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FiliusPadUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -145,6 +149,7 @@
 				A21200000000000000000011 /* TopologyEditorView.swift */,
 				A21200000000000000000012 /* TopologyCanvasView.swift */,
 				A21200000000000000000013 /* TopologyPaletteView.swift */,
+				A21200000000000000000016 /* TopologyDebugOverlayView.swift */,
 			);
 		};
 		A31700000000000000000001 /* FiliusPadTests */ = {
@@ -163,6 +168,7 @@
 			sourceTree = "<group>";
 			children = (
 				A21200000000000000000007 /* FiliusPadUITests.swift */,
+				A21200000000000000000017 /* TopologyEditorTouchFlowUITests.swift */,
 			);
 		};
 		A31900000000000000000001 /* Products */ = {
@@ -313,6 +319,7 @@
 				A12200000000000000000001 /* TopologyCanvasView.swift in Sources */,
 				A12300000000000000000001 /* TopologyPaletteView.swift in Sources */,
 				A12400000000000000000001 /* ViewportTransform.swift in Sources */,
+				A12600000000000000000001 /* TopologyDebugOverlayView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -331,6 +338,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A11700000000000000000001 /* FiliusPadUITests.swift in Sources */,
+				A12700000000000000000001 /* TopologyEditorTouchFlowUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

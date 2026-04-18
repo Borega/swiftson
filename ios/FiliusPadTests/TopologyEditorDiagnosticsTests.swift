@@ -49,6 +49,36 @@ final class TopologyEditorDiagnosticsTests: XCTestCase {
         XCTAssertNotNil(state.lastActionAt)
     }
 
+    func testSuccessfulConnectClearsPreviousValidationErrorAndKeepsInspectableCode() {
+        var state = TopologyEditorState()
+
+        let firstPCNodeID = addNode(kind: .pc, at: CGPoint(x: 40, y: 40), to: &state)
+        let secondPCNodeID = addNode(kind: .pc, at: CGPoint(x: 160, y: 40), to: &state)
+        let switchNodeID = addNode(kind: .networkSwitch, at: CGPoint(x: 100, y: 140), to: &state)
+
+        TopologyEditorReducer.reduce(
+            state: &state,
+            action: .startConnection(nodeID: firstPCNodeID, portID: nil)
+        )
+        TopologyEditorReducer.reduce(
+            state: &state,
+            action: .completeConnection(nodeID: secondPCNodeID, portID: nil)
+        )
+
+        XCTAssertEqual(state.lastValidationError, .incompatibleEndpoint)
+        XCTAssertEqual(state.lastValidationError?.rawValue, "incompatibleEndpoint")
+
+        TopologyEditorReducer.reduce(
+            state: &state,
+            action: .completeConnection(nodeID: switchNodeID, portID: nil)
+        )
+
+        XCTAssertNil(state.lastValidationError)
+        XCTAssertEqual(state.graph.links.count, 1)
+        XCTAssertEqual(state.lastAction, "completeConnection")
+        XCTAssertNotNil(state.lastActionAt)
+    }
+
     func testSuccessfulActionClearsPreviousValidationError() {
         var state = TopologyEditorState()
 

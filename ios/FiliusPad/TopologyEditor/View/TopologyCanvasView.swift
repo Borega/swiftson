@@ -22,8 +22,10 @@ struct TopologyCanvasView: View {
                     .fill(Color(uiColor: .secondarySystemBackground))
 
                 linkLayer
+                    .accessibilityIdentifier("canvas.linkLayer")
 
                 nodeLayer
+                    .accessibilityIdentifier("canvas.nodeLayer")
             }
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             .contentShape(Rectangle())
