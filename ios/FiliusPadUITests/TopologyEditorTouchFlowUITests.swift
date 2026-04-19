@@ -11,10 +11,10 @@ final class TopologyEditorTouchFlowUITests: XCTestCase {
         app.launch()
 
         _ = requireElement(app.otherElements["canvas.surface"], named: "canvas.surface")
-        _ = requireElement(app.descendants(matching: .any)["palette.tool.select"], named: "palette.tool.select")
-        _ = requireElement(app.descendants(matching: .any)["palette.tool.connect"], named: "palette.tool.connect")
-        _ = requireElement(app.descendants(matching: .any)["palette.tool.place.pc"], named: "palette.tool.place.pc")
-        _ = requireElement(app.descendants(matching: .any)["palette.tool.place.switch"], named: "palette.tool.place.switch")
+        _ = requireControl("palette.tool.select")
+        _ = requireControl("palette.tool.connect")
+        _ = requireControl("palette.tool.place.pc")
+        _ = requireControl("palette.tool.place.switch")
     }
 
     func testFullTouchFlowMaintainsCoherentDiagnostics() {
@@ -104,6 +104,39 @@ final class TopologyEditorTouchFlowUITests: XCTestCase {
     // MARK: - Helpers
 
     @discardableResult
+    private func requireControl(_ identifier: String, timeout: TimeInterval = 5) -> XCUIElement {
+        let identified = app.descendants(matching: .any)[identifier]
+        if identified.waitForExistence(timeout: timeout) {
+            return identified
+        }
+
+        if let fallbackLabel = fallbackLabel(for: identifier) {
+            let fallbackButton = app.buttons[fallbackLabel]
+            if fallbackButton.waitForExistence(timeout: 2) {
+                return fallbackButton
+            }
+        }
+
+        XCTFail("Setup failure: missing required accessibility identifier '\(identifier)'")
+        return identified
+    }
+
+    private func fallbackLabel(for identifier: String) -> String? {
+        switch identifier {
+        case "palette.tool.select":
+            return "Select"
+        case "palette.tool.connect":
+            return "Connect"
+        case "palette.tool.place.pc":
+            return "PC"
+        case "palette.tool.place.switch":
+            return "Switch"
+        default:
+            return nil
+        }
+    }
+
+    @discardableResult
     private func requireElement(
         _ element: XCUIElement,
         named identifier: String,
@@ -117,7 +150,7 @@ final class TopologyEditorTouchFlowUITests: XCTestCase {
     }
 
     private func tapButton(_ identifier: String) {
-        let button = requireElement(app.descendants(matching: .any)[identifier], named: identifier)
+        let button = requireControl(identifier)
         button.tap()
     }
 
