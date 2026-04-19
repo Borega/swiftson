@@ -28,8 +28,7 @@ final class TopologyProjectPersistenceWorkflowUITests: XCTestCase {
             additionalArguments: ["-ui-testing"]
         )
 
-        tapButton("palette.tool.place.pc")
-        tapCanvas(at: CGVector(dx: 0.20, dy: 0.24))
+        performDurableViewportMutation()
 
         tapButton("runtime.control.start")
         tapButton("runtime.control.stop")
@@ -246,9 +245,11 @@ final class TopologyProjectPersistenceWorkflowUITests: XCTestCase {
         return canvases.firstMatch
     }
 
-    private func tapCanvas(at normalizedOffset: CGVector) {
+    private func performDurableViewportMutation() {
         let canvas = canvasSurfaceElement(timeout: 8)
-        canvas.coordinate(withNormalizedOffset: normalizedOffset).tap()
+        let start = canvas.coordinate(withNormalizedOffset: CGVector(dx: 0.72, dy: 0.58))
+        let finish = canvas.coordinate(withNormalizedOffset: CGVector(dx: 0.48, dy: 0.42))
+        start.press(forDuration: 0.05, thenDragTo: finish)
     }
 
     private func replaceTextField(_ identifier: String, with text: String) {
