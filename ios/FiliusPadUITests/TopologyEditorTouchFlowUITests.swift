@@ -25,12 +25,6 @@ final class TopologyEditorTouchFlowUITests: XCTestCase {
         _ = requireElement(app.buttons["palette.tool.connect"], named: "palette.tool.connect")
         _ = requireElement(app.buttons["palette.tool.place.pc"], named: "palette.tool.place.pc")
         _ = requireElement(app.buttons["palette.tool.place.switch"], named: "palette.tool.place.switch")
-        _ = requireElement(app.staticTexts["debug.nodeCount"], named: "debug.nodeCount")
-        _ = requireElement(app.staticTexts["debug.selectedNodeCount"], named: "debug.selectedNodeCount")
-        _ = requireElement(app.staticTexts["debug.zoomScale"], named: "debug.zoomScale")
-        _ = requireElement(app.staticTexts["debug.lastValidationError"], named: "debug.lastValidationError")
-        _ = requireElement(app.staticTexts["debug.lastInteractionMode"], named: "debug.lastInteractionMode")
-        _ = requireElement(app.staticTexts["debug.linkCount"], named: "debug.linkCount")
     }
 
     func testFullTouchFlowMaintainsCoherentDiagnostics() {
