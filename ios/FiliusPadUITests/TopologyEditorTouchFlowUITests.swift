@@ -11,7 +11,7 @@ final class TopologyEditorTouchFlowUITests: XCTestCase {
         app.launchArguments = ["-ui-testing"]
         app.launch()
 
-        _ = requireElement(app.otherElements["canvas.surface"], named: "canvas.surface")
+        _ = requireElement(canvasElement(), named: "canvas.surface")
         _ = requireControl("palette.tool.select")
         _ = requireControl("palette.tool.connect")
         _ = requireControl("palette.tool.place.pc")
@@ -74,7 +74,7 @@ final class TopologyEditorTouchFlowUITests: XCTestCase {
         XCTAssertNotEqual(cameraAfterPan, cameraBeforePan, "Expected pan gesture to update camera offset")
 
         // Boundary condition: zoom gestures should stay clamped in viewport bounds.
-        let canvas = app.otherElements["canvas.surface"]
+        let canvas = canvasElement()
         canvas.pinch(withScale: 8.0, velocity: 2.0)
         canvas.pinch(withScale: 0.02, velocity: -2.0)
 
@@ -155,13 +155,17 @@ final class TopologyEditorTouchFlowUITests: XCTestCase {
         button.tap()
     }
 
+    private func canvasElement() -> XCUIElement {
+        app.descendants(matching: .any).matching(identifier: "canvas.surface").firstMatch
+    }
+
     private func tapCanvas(at normalizedOffset: CGVector) {
-        let canvas = requireElement(app.otherElements["canvas.surface"], named: "canvas.surface")
+        let canvas = requireElement(canvasElement(), named: "canvas.surface")
         canvas.coordinate(withNormalizedOffset: normalizedOffset).tap()
     }
 
     private func dragOnCanvas(from start: CGVector, to end: CGVector) {
-        let canvas = requireElement(app.otherElements["canvas.surface"], named: "canvas.surface")
+        let canvas = requireElement(canvasElement(), named: "canvas.surface")
         let startCoordinate = canvas.coordinate(withNormalizedOffset: start)
         let endCoordinate = canvas.coordinate(withNormalizedOffset: end)
         startCoordinate.press(forDuration: 0.1, thenDragTo: endCoordinate)
