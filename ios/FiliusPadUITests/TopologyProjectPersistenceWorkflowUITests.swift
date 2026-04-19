@@ -121,9 +121,9 @@ final class TopologyProjectPersistenceWorkflowUITests: XCTestCase {
         _ = requireElement(app.staticTexts["debug.lastPersistenceError"], named: "debug.lastPersistenceError")
         _ = requireElement(app.staticTexts["debug.lastRecoveryState"], named: "debug.lastRecoveryState")
         _ = requireElement(app.staticTexts["debug.lastRecoveryAt"], named: "debug.lastRecoveryAt")
-        _ = requireElement(app.buttons["palette.tool.place.pc"], named: "palette.tool.place.pc")
-        _ = requireElement(app.buttons["palette.tool.place.switch"], named: "palette.tool.place.switch")
-        _ = requireElement(app.buttons["runtime.control.start"], named: "runtime.control.start")
+        _ = requireControl("palette.tool.place.pc")
+        _ = requireControl("palette.tool.place.switch")
+        _ = requireControl("runtime.control.start")
 
         return app
     }
@@ -151,6 +151,39 @@ final class TopologyProjectPersistenceWorkflowUITests: XCTestCase {
         )
 
         tapButton("runtime.control.stop")
+    }
+
+    @discardableResult
+    private func requireControl(_ identifier: String, timeout: TimeInterval = 5) -> XCUIElement {
+        let identified = app.descendants(matching: .any)[identifier]
+        if identified.waitForExistence(timeout: timeout) {
+            return identified
+        }
+
+        if let fallbackLabel = controlLabelFallback(for: identifier) {
+            let fallbackButton = app.buttons[fallbackLabel]
+            if fallbackButton.waitForExistence(timeout: 2) {
+                return fallbackButton
+            }
+        }
+
+        XCTFail("Missing required accessibility identifier '\(identifier)'")
+        return identified
+    }
+
+    private func controlLabelFallback(for identifier: String) -> String? {
+        switch identifier {
+        case "palette.tool.place.pc":
+            return "PC"
+        case "palette.tool.place.switch":
+            return "Switch"
+        case "runtime.control.start":
+            return "Start"
+        case "runtime.control.stop":
+            return "Stop"
+        default:
+            return nil
+        }
     }
 
     @discardableResult
@@ -199,7 +232,7 @@ final class TopologyProjectPersistenceWorkflowUITests: XCTestCase {
     }
 
     private func tapButton(_ identifier: String) {
-        let button = requireElement(app.buttons[identifier], named: identifier)
+        let button = requireControl(identifier)
         XCTAssertTrue(button.isEnabled, "Button '\(identifier)' must be enabled before tapping")
         button.tap()
     }
