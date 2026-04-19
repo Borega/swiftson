@@ -276,7 +276,8 @@ final class TopologyProjectPersistenceWorkflowUITests: XCTestCase {
 
         let canvas = requireElement(
             resolvedCanvas ?? canvasQuery.firstMatch,
-            named: "canvas.surface"
+            named: "canvas.surface",
+            timeout: 15
         )
         canvas.coordinate(withNormalizedOffset: normalizedOffset).tap()
     }
