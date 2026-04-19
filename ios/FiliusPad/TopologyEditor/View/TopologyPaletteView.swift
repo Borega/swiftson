@@ -136,17 +136,18 @@ struct TopologyPaletteView: View {
         }
         .buttonStyle(.plain)
         .disabled(!isEditingEnabled)
-        .accessibilityIdentifier(identifier)
 
         guard let draggableNodeKind, isEditingEnabled else {
-            return AnyView(baseButton)
+            return AnyView(baseButton.accessibilityIdentifier(identifier))
         }
 
         return AnyView(
-            baseButton.onDrag {
-                onPaletteDragPrepared(draggableNodeKind)
-                return NSItemProvider(object: draggableNodeKind.rawValue as NSString)
-            }
+            baseButton
+                .onDrag {
+                    onPaletteDragPrepared(draggableNodeKind)
+                    return NSItemProvider(object: draggableNodeKind.rawValue as NSString)
+                }
+                .accessibilityIdentifier(identifier)
         )
     }
 
