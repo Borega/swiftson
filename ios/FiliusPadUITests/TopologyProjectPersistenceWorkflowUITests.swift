@@ -155,13 +155,13 @@ final class TopologyProjectPersistenceWorkflowUITests: XCTestCase {
 
     @discardableResult
     private func requireControl(_ identifier: String, timeout: TimeInterval = 5) -> XCUIElement {
-        let identified = app.descendants(matching: .any)[identifier]
+        let identified = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
         if identified.waitForExistence(timeout: timeout) {
             return identified
         }
 
         if let fallbackLabel = controlLabelFallback(for: identifier) {
-            let fallbackButton = app.buttons[fallbackLabel]
+            let fallbackButton = app.buttons.matching(NSPredicate(format: "label == %@", fallbackLabel)).firstMatch
             if fallbackButton.waitForExistence(timeout: 2) {
                 return fallbackButton
             }
