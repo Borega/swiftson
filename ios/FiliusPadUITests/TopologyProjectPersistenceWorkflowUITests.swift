@@ -93,7 +93,6 @@ final class TopologyProjectPersistenceWorkflowUITests: XCTestCase {
 
         assertDiagnosticContains("debug.lastPersistenceError", expectedSubstring: "none")
 
-        _ = tapButtonIfPresent("palette.tool.place.pc")
         tapCanvas(at: CGVector(dx: 0.45, dy: 0.45))
         assertDiagnosticContains("debug.nodeCount", expectedSubstring: "Nodes: 1")
     }
@@ -129,10 +128,8 @@ final class TopologyProjectPersistenceWorkflowUITests: XCTestCase {
     }
 
     private func seedTwoNodeTopologyWithRuntimeConfiguration() {
-        _ = tapButtonIfPresent("palette.tool.place.pc")
         tapCanvas(at: CGVector(dx: 0.25, dy: 0.30))
 
-        _ = tapButtonIfPresent("palette.tool.place.switch")
         tapCanvas(at: CGVector(dx: 0.70, dy: 0.30))
 
         tapButton("runtime.control.start")

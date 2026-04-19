@@ -187,6 +187,13 @@ patterns = [
     re.compile(r'Timed out', re.I),
     re.compile(r'persistence', re.I),
     re.compile(r'recovery', re.I),
+    re.compile(r'Missing required accessibility identifier', re.I),
+    re.compile(r'Failed to get matching snapshot', re.I),
+    re.compile(r'Multiple matching elements', re.I),
+    re.compile(r'must be enabled', re.I),
+    re.compile(r'Assertion Failure', re.I),
+    re.compile(r'XCTFail', re.I),
+    re.compile(r'UI Testing Failure', re.I),
 ]
 
 lines = []
