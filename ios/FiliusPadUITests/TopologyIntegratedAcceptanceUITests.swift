@@ -442,6 +442,27 @@ final class TopologyIntegratedAcceptanceUITests: XCTestCase {
         XCTFail("Timed out waiting for \(identifier) to stop containing '\(forbiddenSubstring)'")
     }
 
+    private func waitForUsableFrame(of element: XCUIElement, identifier: String, timeout: TimeInterval) -> CGRect? {
+        let deadline = Date().addingTimeInterval(timeout)
+
+        while Date() < deadline {
+            let frame = element.frame
+            if frame.width.isFinite,
+               frame.height.isFinite,
+               frame.minX.isFinite,
+               frame.minY.isFinite,
+               frame.width > 1,
+               frame.height > 1 {
+                return frame
+            }
+
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+
+        XCTFail("Element '\(identifier)' never reported a usable frame")
+        return nil
+    }
+
     private func waitForElementToDisappear(_ element: XCUIElement, timeout: TimeInterval, identifier: String) {
         let deadline = Date().addingTimeInterval(timeout)
 
@@ -616,8 +637,21 @@ final class TopologyIntegratedAcceptanceUITests: XCTestCase {
     }
 
     private func tapCanvas(at normalizedOffset: CGVector) {
+        guard normalizedOffset.dx.isFinite, normalizedOffset.dy.isFinite else {
+            XCTFail("Canvas tap received non-finite offset: \(normalizedOffset)")
+            return
+        }
+
         let canvas = canvasSurfaceElement(timeout: 8)
-        canvas.coordinate(withNormalizedOffset: normalizedOffset).tap()
+        guard waitForUsableFrame(of: canvas, identifier: "canvas.surface", timeout: 8) != nil else {
+            return
+        }
+
+        let clampedOffset = CGVector(
+            dx: min(max(normalizedOffset.dx, 0.02), 0.98),
+            dy: min(max(normalizedOffset.dy, 0.02), 0.98)
+        )
+        canvas.coordinate(withNormalizedOffset: clampedOffset).tap()
     }
 
     private func replaceTextField(_ identifier: String, with text: String) {
