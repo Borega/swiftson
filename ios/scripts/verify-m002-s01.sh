@@ -140,21 +140,76 @@ emit_touch_flow_failure_diagnostics() {
     return
   fi
 
-  local summary_output
-  summary_output="$(xcrun xcresulttool get test-results summary --path "$result_bundle" 2>/dev/null || true)"
-  if [[ -n "$summary_output" ]]; then
-    log "touch-flow diagnostics summary"
-    printf '%s\n' "$summary_output"
+  local json_dump
+  json_dump="$(mktemp)"
+
+  if ! xcrun xcresulttool get --legacy --path "$result_bundle" --format json >"$json_dump" 2>/dev/null; then
+    if ! xcrun xcresulttool get --path "$result_bundle" --format json >"$json_dump" 2>/dev/null; then
+      log "touch-flow diagnostics: xcresulttool could not decode $result_bundle"
+      rm -f "$json_dump"
+      return
+    fi
   fi
 
-  local tests_output
-  tests_output="$(xcrun xcresulttool get test-results tests --path "$result_bundle" 2>/dev/null || true)"
-  if [[ -n "$tests_output" ]]; then
-    log "touch-flow diagnostics (filtered)"
-    printf '%s\n' "$tests_output" \
-      | grep -E "TopologyEditorTouchFlowUITests|failed|failure|message|assert|Expected|Setup failure|Malformed input guard" \
-      | head -n 120 || true
+  local python_cmd=""
+  if command -v python3 >/dev/null 2>&1; then
+    python_cmd="python3"
+  elif command -v python >/dev/null 2>&1; then
+    python_cmd="python"
+  else
+    log "touch-flow diagnostics: python unavailable; falling back to grep"
+    grep -E "TopologyEditorTouchFlowUITests|failed|failure|assert|Expected|Setup failure|Malformed input guard" "$json_dump" | head -n 120 || true
+    rm -f "$json_dump"
+    return
   fi
+
+  log "touch-flow diagnostics (xcresult filtered)"
+  "$python_cmd" - "$json_dump" <<'PY'
+import json
+import re
+import sys
+from collections import OrderedDict
+
+path = sys.argv[1]
+with open(path, 'r', encoding='utf-8', errors='replace') as f:
+    data = json.load(f)
+
+patterns = [
+    re.compile(r'TopologyEditorTouchFlowUITests', re.I),
+    re.compile(r'failed', re.I),
+    re.compile(r'failure', re.I),
+    re.compile(r'Setup failure', re.I),
+    re.compile(r'Malformed input guard', re.I),
+    re.compile(r'XCTAssert', re.I),
+    re.compile(r'Expected', re.I),
+]
+
+lines = []
+
+def walk(node):
+    if isinstance(node, dict):
+        for k, v in node.items():
+            if isinstance(v, str):
+                candidate = f"{k}: {v}"
+                if any(p.search(candidate) for p in patterns):
+                    lines.append(candidate)
+            else:
+                walk(v)
+    elif isinstance(node, list):
+        for item in node:
+            walk(item)
+
+walk(data)
+
+unique = list(OrderedDict.fromkeys(lines))
+for entry in unique[:120]:
+    print(entry)
+
+if not unique:
+    print('no matched failure diagnostics found in xcresult payload')
+PY
+
+  rm -f "$json_dump"
 }
 
 run_touch_flow_ui_phase() {
