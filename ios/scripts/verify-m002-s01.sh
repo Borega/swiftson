@@ -127,6 +127,76 @@ run_contract_phase() {
   log "✓ ${phase} passed in ${duration}s"
 }
 
+emit_touch_flow_failure_diagnostics() {
+  local result_bundle="$1"
+
+  if [[ ! -d "$result_bundle" ]]; then
+    log "touch-flow diagnostics: result bundle missing at $result_bundle"
+    return
+  fi
+
+  if ! command -v xcrun >/dev/null 2>&1; then
+    log "touch-flow diagnostics: xcrun unavailable; skipping xcresult extraction"
+    return
+  fi
+
+  local summary_output
+  summary_output="$(xcrun xcresulttool get test-results summary --path "$result_bundle" 2>/dev/null || true)"
+  if [[ -n "$summary_output" ]]; then
+    log "touch-flow diagnostics summary"
+    printf '%s\n' "$summary_output"
+  fi
+
+  local tests_output
+  tests_output="$(xcrun xcresulttool get test-results tests --path "$result_bundle" 2>/dev/null || true)"
+  if [[ -n "$tests_output" ]]; then
+    log "touch-flow diagnostics (filtered)"
+    printf '%s\n' "$tests_output" \
+      | grep -E "TopologyEditorTouchFlowUITests|failed|failure|message|assert|Expected|Setup failure|Malformed input guard" \
+      | head -n 120 || true
+  fi
+}
+
+run_touch_flow_ui_phase() {
+  local result_bundle="$ROOT_DIR/build/m002-s01-touchflow.xcresult"
+  rm -rf "$result_bundle"
+
+  local started_at
+  started_at="$(date +%s)"
+
+  log "▶ Touch-flow UI tests"
+
+  set +e
+  run_with_optional_timeout \
+    xcodebuild \
+    -project "$PROJECT_PATH" \
+    -scheme "$SCHEME" \
+    -destination "$DESTINATION" \
+    -resultBundlePath "$result_bundle" \
+    -only-testing:FiliusPadUITests/TopologyEditorTouchFlowUITests \
+    test
+  local status=$?
+  set -e
+
+  local finished_at
+  finished_at="$(date +%s)"
+  local duration=$((finished_at - started_at))
+
+  if [[ $status -ne 0 ]]; then
+    if [[ $status -eq 124 ]]; then
+      log "✗ Touch-flow UI tests timed out after ${duration}s"
+    else
+      log "✗ Touch-flow UI tests failed after ${duration}s"
+    fi
+
+    log "  command: xcodebuild -project $PROJECT_PATH -scheme $SCHEME -destination $DESTINATION -resultBundlePath $result_bundle -only-testing:FiliusPadUITests/TopologyEditorTouchFlowUITests test"
+    emit_touch_flow_failure_diagnostics "$result_bundle"
+    exit "$status"
+  fi
+
+  log "✓ Touch-flow UI tests passed in ${duration}s"
+}
+
 ensure_file_exists() {
   local file="$1"
   local code="$2"
@@ -363,14 +433,7 @@ run_phase \
   -only-testing:FiliusPadTests/TopologyEditorDiagnosticsTests \
   test
 
-run_phase \
-  "Touch-flow UI tests" \
-  xcodebuild \
-  -project "$PROJECT_PATH" \
-  -scheme "$SCHEME" \
-  -destination "$DESTINATION" \
-  -only-testing:FiliusPadUITests/TopologyEditorTouchFlowUITests \
-  test
+run_touch_flow_ui_phase
 
 run_phase \
   "Project build" \
