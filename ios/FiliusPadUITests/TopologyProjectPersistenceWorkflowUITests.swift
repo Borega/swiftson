@@ -260,8 +260,22 @@ final class TopologyProjectPersistenceWorkflowUITests: XCTestCase {
     }
 
     private func tapCanvas(at normalizedOffset: CGVector) {
+        let canvasQuery = app.otherElements.matching(identifier: "canvas.surface")
+        let canvasCount = canvasQuery.count
+
+        var resolvedCanvas: XCUIElement?
+        if canvasCount > 0 {
+            for index in 0..<canvasCount {
+                let candidate = canvasQuery.element(boundBy: index)
+                if candidate.exists && candidate.isHittable {
+                    resolvedCanvas = candidate
+                    break
+                }
+            }
+        }
+
         let canvas = requireElement(
-            app.otherElements.matching(identifier: "canvas.surface").firstMatch,
+            resolvedCanvas ?? canvasQuery.firstMatch,
             named: "canvas.surface"
         )
         canvas.coordinate(withNormalizedOffset: normalizedOffset).tap()
