@@ -262,7 +262,7 @@ final class TopologyEditorReducerTests: XCTestCase {
 
         TopologyEditorReducer.reduce(
             state: &state,
-            action: .panCanvas(delta: CGSize(width: .infinity, height: 10))
+            action: .panCanvas(delta: CGSize(width: CGFloat.infinity, height: 10))
         )
         XCTAssertEqual(state.lastValidationError, .malformedActionPayload)
         XCTAssertEqual(state.viewport, initialViewport)
