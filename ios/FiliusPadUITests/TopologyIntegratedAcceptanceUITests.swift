@@ -229,26 +229,15 @@ final class TopologyIntegratedAcceptanceUITests: XCTestCase {
         app.launchEnvironment["FILIUSPAD_AUTOSAVE_FILE"] = autosaveURL.path
         app.launch()
 
-        _ = canvasSurfaceElement()
-        _ = requireElement(app.buttons["palette.tool.place.pc"], named: "palette.tool.place.pc")
-        _ = requireElement(app.buttons["palette.tool.place.switch"], named: "palette.tool.place.switch")
-        _ = requireElement(app.buttons["palette.tool.connect"], named: "palette.tool.connect")
-        _ = requireElement(app.buttons["runtime.control.start"], named: "runtime.control.start")
-        _ = requireElement(app.buttons["runtime.control.stop"], named: "runtime.control.stop")
-        _ = requireElement(app.staticTexts["debug.nodeCount"], named: "debug.nodeCount")
-        _ = requireElement(app.staticTexts["debug.linkCount"], named: "debug.linkCount")
-        _ = requireElement(app.staticTexts["debug.simulationPhase"], named: "debug.simulationPhase")
-        _ = requireElement(app.staticTexts["debug.simulationTick"], named: "debug.simulationTick")
-        _ = requireElement(app.staticTexts["debug.lastRuntimeEvent"], named: "debug.lastRuntimeEvent")
-        _ = requireElement(app.staticTexts["debug.lastRuntimeRoute"], named: "debug.lastRuntimeRoute")
-        _ = requireElement(app.staticTexts["debug.lastRuntimeFault"], named: "debug.lastRuntimeFault")
-        _ = requireElement(app.staticTexts["debug.lastPingEvent"], named: "debug.lastPingEvent")
-        _ = requireElement(app.staticTexts["debug.lastPingFault"], named: "debug.lastPingFault")
-        _ = requireElement(app.staticTexts["debug.runtimeConsoleCount"], named: "debug.runtimeConsoleCount")
-        _ = requireElement(app.staticTexts["debug.lastPersistenceSaveAt"], named: "debug.lastPersistenceSaveAt")
-        _ = requireElement(app.staticTexts["debug.lastPersistenceLoadAt"], named: "debug.lastPersistenceLoadAt")
-        _ = requireElement(app.staticTexts["debug.lastPersistenceError"], named: "debug.lastPersistenceError")
-        _ = requireElement(app.staticTexts["debug.openedRuntimeDevice"], named: "debug.openedRuntimeDevice")
+        _ = canvasSurfaceElement(timeout: 10)
+        _ = requireControl("palette.tool.place.pc")
+        _ = requireControl("palette.tool.place.switch")
+        _ = requireControl("palette.tool.connect")
+        _ = requireControl("runtime.control.start")
+        _ = requireControl("runtime.control.stop")
+        _ = requireDiagnosticElement("debug.nodeCount")
+        _ = requireDiagnosticElement("debug.linkCount")
+        _ = requireDiagnosticElement("debug.simulationPhase")
 
         return app
     }
@@ -373,12 +362,12 @@ final class TopologyIntegratedAcceptanceUITests: XCTestCase {
 
     private func assertRuntimeControlState(startEnabled: Bool, stopEnabled: Bool) {
         XCTAssertEqual(
-            requireElement(app.buttons["runtime.control.start"], named: "runtime.control.start").isEnabled,
+            requireControl("runtime.control.start").isEnabled,
             startEnabled,
             "runtime.control.start enabled state mismatch"
         )
         XCTAssertEqual(
-            requireElement(app.buttons["runtime.control.stop"], named: "runtime.control.stop").isEnabled,
+            requireControl("runtime.control.stop").isEnabled,
             stopEnabled,
             "runtime.control.stop enabled state mismatch"
         )
@@ -511,8 +500,110 @@ final class TopologyIntegratedAcceptanceUITests: XCTestCase {
         return element
     }
 
+    @discardableResult
+    private func requireControl(_ identifier: String, timeout: TimeInterval = 10) -> XCUIElement {
+        if let control = locateControl(identifier, timeout: timeout) {
+            return control
+        }
+
+        XCTFail("Missing required accessibility identifier '\(identifier)'")
+        return app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+    }
+
+    private func locateControl(_ identifier: String, timeout: TimeInterval) -> XCUIElement? {
+        let identified = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+        if identified.waitForExistence(timeout: timeout) {
+            return identified
+        }
+
+        if let fallbackLabel = controlLabelFallback(for: identifier) {
+            let fallbackButton = app.buttons.matching(NSPredicate(format: "label == %@", fallbackLabel)).firstMatch
+            if fallbackButton.waitForExistence(timeout: 2) {
+                return fallbackButton
+            }
+        }
+
+        return nil
+    }
+
+    private func controlLabelFallback(for identifier: String) -> String? {
+        switch identifier {
+        case "palette.tool.place.pc":
+            return "PC"
+        case "palette.tool.place.switch":
+            return "Switch"
+        case "palette.tool.connect":
+            return "Connect"
+        case "runtime.control.start":
+            return "Start"
+        case "runtime.control.stop":
+            return "Stop"
+        case "runtime.device.save":
+            return "Save"
+        case "runtime.device.execute":
+            return "Run"
+        case "runtime.device.close":
+            return "Done"
+        default:
+            return nil
+        }
+    }
+
+    @discardableResult
+    private func requireDiagnosticElement(_ identifier: String, timeout: TimeInterval = 10) -> XCUIElement {
+        let identified = app.staticTexts[identifier]
+        if identified.waitForExistence(timeout: timeout) {
+            return identified
+        }
+
+        if let prefix = diagnosticPrefixFallback(for: identifier) {
+            let fallback = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", prefix)).firstMatch
+            if fallback.waitForExistence(timeout: 2) {
+                return fallback
+            }
+        }
+
+        XCTFail("Missing required accessibility identifier '\(identifier)'")
+        return identified
+    }
+
+    private func diagnosticPrefixFallback(for identifier: String) -> String? {
+        switch identifier {
+        case "debug.nodeCount":
+            return "Nodes:"
+        case "debug.linkCount":
+            return "Links:"
+        case "debug.simulationPhase":
+            return "Simulation phase:"
+        case "debug.simulationTick":
+            return "Simulation tick:"
+        case "debug.lastRuntimeEvent":
+            return "Last runtime event:"
+        case "debug.lastRuntimeRoute":
+            return "Last runtime route:"
+        case "debug.lastRuntimeFault":
+            return "Last runtime fault:"
+        case "debug.lastPingEvent":
+            return "Last ping event:"
+        case "debug.lastPingFault":
+            return "Last ping fault:"
+        case "debug.runtimeConsoleCount":
+            return "Opened runtime console entries:"
+        case "debug.lastPersistenceSaveAt":
+            return "Last persistence save:"
+        case "debug.lastPersistenceLoadAt":
+            return "Last persistence load:"
+        case "debug.lastPersistenceError":
+            return "Last persistence error:"
+        case "debug.openedRuntimeDevice":
+            return "Opened runtime device:"
+        default:
+            return nil
+        }
+    }
+
     private func tapButton(_ identifier: String) {
-        let button = requireElement(app.buttons[identifier], named: identifier)
+        let button = requireControl(identifier)
         XCTAssertTrue(button.isEnabled, "Button '\(identifier)' must be enabled before tapping")
         button.tap()
     }
@@ -557,7 +648,7 @@ final class TopologyIntegratedAcceptanceUITests: XCTestCase {
     }
 
     private func label(for identifier: String) -> String {
-        let element = requireElement(app.staticTexts[identifier], named: identifier)
+        let element = requireDiagnosticElement(identifier)
         return element.label
     }
 

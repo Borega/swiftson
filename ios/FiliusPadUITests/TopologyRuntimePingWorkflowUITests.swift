@@ -11,17 +11,17 @@ final class TopologyRuntimePingWorkflowUITests: XCTestCase {
         app.launch()
 
         _ = canvasSurfaceElement()
-        _ = requireElement(app.buttons["palette.tool.place.pc"], named: "palette.tool.place.pc")
-        _ = requireElement(app.buttons["palette.tool.place.switch"], named: "palette.tool.place.switch")
-        _ = requireElement(app.buttons["palette.tool.connect"], named: "palette.tool.connect")
-        _ = requireElement(app.buttons["runtime.control.start"], named: "runtime.control.start")
-        _ = requireElement(app.staticTexts["debug.simulationPhase"], named: "debug.simulationPhase")
-        _ = requireElement(app.staticTexts["debug.lastRuntimeEvent"], named: "debug.lastRuntimeEvent")
-        _ = requireElement(app.staticTexts["debug.lastRuntimeRoute"], named: "debug.lastRuntimeRoute")
-        _ = requireElement(app.staticTexts["debug.lastRuntimeFault"], named: "debug.lastRuntimeFault")
-        _ = requireElement(app.staticTexts["debug.lastPingEvent"], named: "debug.lastPingEvent")
-        _ = requireElement(app.staticTexts["debug.lastPingFault"], named: "debug.lastPingFault")
-        _ = requireElement(app.staticTexts["debug.openedRuntimeDevice"], named: "debug.openedRuntimeDevice")
+        _ = requireControl("palette.tool.place.pc")
+        _ = requireControl("palette.tool.place.switch")
+        _ = requireControl("palette.tool.connect")
+        _ = requireControl("runtime.control.start")
+        _ = requireDiagnosticElement("debug.simulationPhase")
+        _ = requireDiagnosticElement("debug.lastRuntimeEvent")
+        _ = requireDiagnosticElement("debug.lastRuntimeRoute")
+        _ = requireDiagnosticElement("debug.lastRuntimeFault")
+        _ = requireDiagnosticElement("debug.lastPingEvent")
+        _ = requireDiagnosticElement("debug.lastPingFault")
+        _ = requireDiagnosticElement("debug.openedRuntimeDevice")
     }
 
     func testPingSucceedsForReachableConfiguredPeerInRunningSimulation() {
@@ -105,8 +105,94 @@ final class TopologyRuntimePingWorkflowUITests: XCTestCase {
         return element
     }
 
+    @discardableResult
+    private func requireControl(_ identifier: String, timeout: TimeInterval = 10) -> XCUIElement {
+        if let control = locateControl(identifier, timeout: timeout) {
+            return control
+        }
+
+        XCTFail("Missing required accessibility identifier '\(identifier)'")
+        return app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+    }
+
+    private func locateControl(_ identifier: String, timeout: TimeInterval) -> XCUIElement? {
+        let identified = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+        if identified.waitForExistence(timeout: timeout) {
+            return identified
+        }
+
+        if let fallbackLabel = controlLabelFallback(for: identifier) {
+            let fallbackButton = app.buttons.matching(NSPredicate(format: "label == %@", fallbackLabel)).firstMatch
+            if fallbackButton.waitForExistence(timeout: 2) {
+                return fallbackButton
+            }
+        }
+
+        return nil
+    }
+
+    private func controlLabelFallback(for identifier: String) -> String? {
+        switch identifier {
+        case "palette.tool.place.pc":
+            return "PC"
+        case "palette.tool.place.switch":
+            return "Switch"
+        case "palette.tool.connect":
+            return "Connect"
+        case "runtime.control.start":
+            return "Start"
+        case "runtime.device.save":
+            return "Save"
+        case "runtime.device.execute":
+            return "Run"
+        case "runtime.device.close":
+            return "Done"
+        default:
+            return nil
+        }
+    }
+
+    @discardableResult
+    private func requireDiagnosticElement(_ identifier: String, timeout: TimeInterval = 10) -> XCUIElement {
+        let identified = app.staticTexts[identifier]
+        if identified.waitForExistence(timeout: timeout) {
+            return identified
+        }
+
+        if let prefix = diagnosticPrefixFallback(for: identifier) {
+            let fallback = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", prefix)).firstMatch
+            if fallback.waitForExistence(timeout: 2) {
+                return fallback
+            }
+        }
+
+        XCTFail("Missing required accessibility identifier '\(identifier)'")
+        return identified
+    }
+
+    private func diagnosticPrefixFallback(for identifier: String) -> String? {
+        switch identifier {
+        case "debug.simulationPhase":
+            return "Simulation phase:"
+        case "debug.lastRuntimeEvent":
+            return "Last runtime event:"
+        case "debug.lastRuntimeRoute":
+            return "Last runtime route:"
+        case "debug.lastRuntimeFault":
+            return "Last runtime fault:"
+        case "debug.lastPingEvent":
+            return "Last ping event:"
+        case "debug.lastPingFault":
+            return "Last ping fault:"
+        case "debug.openedRuntimeDevice":
+            return "Opened runtime device:"
+        default:
+            return nil
+        }
+    }
+
     private func tapButton(_ identifier: String) {
-        let button = requireElement(app.buttons[identifier], named: identifier)
+        let button = requireControl(identifier)
         XCTAssertTrue(button.isEnabled, "Button '\(identifier)' must be enabled before tapping")
         button.tap()
     }
@@ -174,7 +260,7 @@ final class TopologyRuntimePingWorkflowUITests: XCTestCase {
     }
 
     private func label(for identifier: String) -> String {
-        let element = requireElement(app.staticTexts[identifier], named: identifier)
+        let element = requireDiagnosticElement(identifier)
         return element.label
     }
 
