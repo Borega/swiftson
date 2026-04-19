@@ -10,7 +10,7 @@ final class TopologyRuntimePingWorkflowUITests: XCTestCase {
         app.launchArguments += ["-ui-testing"]
         app.launch()
 
-        _ = requireElement(app.otherElements["canvas.surface"], named: "canvas.surface")
+        _ = canvasSurfaceElement()
         _ = requireElement(app.buttons["palette.tool.place.pc"], named: "palette.tool.place.pc")
         _ = requireElement(app.buttons["palette.tool.place.switch"], named: "palette.tool.place.switch")
         _ = requireElement(app.buttons["palette.tool.connect"], named: "palette.tool.connect")
@@ -111,8 +111,15 @@ final class TopologyRuntimePingWorkflowUITests: XCTestCase {
         button.tap()
     }
 
+    @discardableResult
+    private func canvasSurfaceElement(timeout: TimeInterval = 5) -> XCUIElement {
+        let canvas = app.otherElements.matching(identifier: "canvas.surface").firstMatch
+        XCTAssertTrue(canvas.waitForExistence(timeout: timeout), "Missing required accessibility identifier 'canvas.surface'")
+        return canvas
+    }
+
     private func tapCanvas(at normalizedOffset: CGVector) {
-        let canvas = requireElement(app.otherElements["canvas.surface"], named: "canvas.surface")
+        let canvas = canvasSurfaceElement(timeout: 8)
         canvas.coordinate(withNormalizedOffset: normalizedOffset).tap()
     }
 
@@ -128,10 +135,7 @@ final class TopologyRuntimePingWorkflowUITests: XCTestCase {
 
     private func closeRuntimeDeviceSheet() {
         tapButton("runtime.device.close")
-        XCTAssertFalse(
-            app.otherElements["runtime.device.sheet"].exists,
-            "Expected runtime device sheet to dismiss after tapping Done"
-        )
+        waitForElementToDisappear(app.otherElements["runtime.device.sheet"], timeout: 3, identifier: "runtime.device.sheet")
         assertDiagnosticContains("debug.openedRuntimeDevice", expectedSubstring: "none")
     }
 
@@ -174,7 +178,20 @@ final class TopologyRuntimePingWorkflowUITests: XCTestCase {
         return element.label
     }
 
-    private func assertAnyConsoleLineContains(_ expectedText: String) {
+    private func waitForElementToDisappear(_ element: XCUIElement, timeout: TimeInterval, identifier: String) {
+        let deadline = Date().addingTimeInterval(timeout)
+
+        while Date() < deadline {
+            if !element.exists {
+                return
+            }
+
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+
+        XCTFail("Timed out waiting for '\(identifier)' to disappear")
+    }
+
         let predicate = NSPredicate(format: "identifier BEGINSWITH %@", "runtime.device.console.line.")
         let lines = app.staticTexts.matching(predicate)
 

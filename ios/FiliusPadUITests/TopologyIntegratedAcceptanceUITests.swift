@@ -229,7 +229,7 @@ final class TopologyIntegratedAcceptanceUITests: XCTestCase {
         app.launchEnvironment["FILIUSPAD_AUTOSAVE_FILE"] = autosaveURL.path
         app.launch()
 
-        _ = requireElement(app.otherElements["canvas.surface"], named: "canvas.surface")
+        _ = canvasSurfaceElement()
         _ = requireElement(app.buttons["palette.tool.place.pc"], named: "palette.tool.place.pc")
         _ = requireElement(app.buttons["palette.tool.place.switch"], named: "palette.tool.place.switch")
         _ = requireElement(app.buttons["palette.tool.connect"], named: "palette.tool.connect")
@@ -517,8 +517,15 @@ final class TopologyIntegratedAcceptanceUITests: XCTestCase {
         button.tap()
     }
 
+    @discardableResult
+    private func canvasSurfaceElement(timeout: TimeInterval = 5) -> XCUIElement {
+        let canvas = app.otherElements.matching(identifier: "canvas.surface").firstMatch
+        XCTAssertTrue(canvas.waitForExistence(timeout: timeout), "Missing required accessibility identifier 'canvas.surface'")
+        return canvas
+    }
+
     private func tapCanvas(at normalizedOffset: CGVector) {
-        let canvas = requireElement(app.otherElements["canvas.surface"], named: "canvas.surface")
+        let canvas = canvasSurfaceElement(timeout: 8)
         canvas.coordinate(withNormalizedOffset: normalizedOffset).tap()
     }
 

@@ -285,6 +285,7 @@ run_phase \
   -project "$PROJECT_PATH" \
   -scheme "$SCHEME" \
   -destination "$DESTINATION" \
+  -parallel-testing-enabled NO \
   -only-testing:FiliusPadUITests/TopologyRuntimePingWorkflowUITests \
   -only-testing:FiliusPadUITests/TopologyIntegratedAcceptanceUITests \
   test
