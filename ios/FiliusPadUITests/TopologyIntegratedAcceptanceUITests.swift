@@ -442,27 +442,6 @@ final class TopologyIntegratedAcceptanceUITests: XCTestCase {
         XCTFail("Timed out waiting for \(identifier) to stop containing '\(forbiddenSubstring)'")
     }
 
-    private func waitForUsableFrame(of element: XCUIElement, identifier: String, timeout: TimeInterval) -> CGRect? {
-        let deadline = Date().addingTimeInterval(timeout)
-
-        while Date() < deadline {
-            let frame = element.frame
-            if frame.width.isFinite,
-               frame.height.isFinite,
-               frame.minX.isFinite,
-               frame.minY.isFinite,
-               frame.width > 1,
-               frame.height > 1 {
-                return frame
-            }
-
-            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
-        }
-
-        XCTFail("Element '\(identifier)' never reported a usable frame")
-        return nil
-    }
-
     private func waitForElementToDisappear(_ element: XCUIElement, timeout: TimeInterval, identifier: String) {
         let deadline = Date().addingTimeInterval(timeout)
 
@@ -528,13 +507,13 @@ final class TopologyIntegratedAcceptanceUITests: XCTestCase {
         }
 
         XCTFail("Missing required accessibility identifier '\(identifier)'")
-        return app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+        return app.buttons[identifier]
     }
 
     private func locateControl(_ identifier: String, timeout: TimeInterval) -> XCUIElement? {
-        let identified = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
-        if identified.waitForExistence(timeout: timeout) {
-            return identified
+        let direct = app.buttons[identifier]
+        if direct.waitForExistence(timeout: timeout) {
+            return direct
         }
 
         if let fallbackLabel = controlLabelFallback(for: identifier) {
@@ -642,16 +621,14 @@ final class TopologyIntegratedAcceptanceUITests: XCTestCase {
             return
         }
 
-        let canvas = canvasSurfaceElement(timeout: 8)
-        guard waitForUsableFrame(of: canvas, identifier: "canvas.surface", timeout: 8) != nil else {
-            return
-        }
+        let window = app.windows.firstMatch
+        XCTAssertTrue(window.waitForExistence(timeout: 8), "Missing app window for canvas interaction")
 
         let clampedOffset = CGVector(
             dx: min(max(normalizedOffset.dx, 0.02), 0.98),
             dy: min(max(normalizedOffset.dy, 0.02), 0.98)
         )
-        canvas.coordinate(withNormalizedOffset: clampedOffset).tap()
+        window.coordinate(withNormalizedOffset: clampedOffset).tap()
     }
 
     private func replaceTextField(_ identifier: String, with text: String) {

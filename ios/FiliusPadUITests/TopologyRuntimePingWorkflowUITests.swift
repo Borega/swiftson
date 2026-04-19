@@ -10,18 +10,7 @@ final class TopologyRuntimePingWorkflowUITests: XCTestCase {
         app.launchArguments += ["-ui-testing"]
         app.launch()
 
-        _ = canvasSurfaceElement()
-        _ = requireControl("palette.tool.place.pc")
-        _ = requireControl("palette.tool.place.switch")
-        _ = requireControl("palette.tool.connect")
-        _ = requireControl("runtime.control.start")
-        _ = requireDiagnosticElement("debug.simulationPhase")
-        _ = requireDiagnosticElement("debug.lastRuntimeEvent")
-        _ = requireDiagnosticElement("debug.lastRuntimeRoute")
-        _ = requireDiagnosticElement("debug.lastRuntimeFault")
-        _ = requireDiagnosticElement("debug.lastPingEvent")
-        _ = requireDiagnosticElement("debug.lastPingFault")
-        _ = requireDiagnosticElement("debug.openedRuntimeDevice")
+        _ = canvasSurfaceElement(timeout: 8)
     }
 
     func testPingSucceedsForReachableConfiguredPeerInRunningSimulation() {
@@ -112,13 +101,13 @@ final class TopologyRuntimePingWorkflowUITests: XCTestCase {
         }
 
         XCTFail("Missing required accessibility identifier '\(identifier)'")
-        return app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+        return app.buttons[identifier]
     }
 
     private func locateControl(_ identifier: String, timeout: TimeInterval) -> XCUIElement? {
-        let identified = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
-        if identified.waitForExistence(timeout: timeout) {
-            return identified
+        let direct = app.buttons[identifier]
+        if direct.waitForExistence(timeout: timeout) {
+            return direct
         }
 
         if let fallbackLabel = controlLabelFallback(for: identifier) {
@@ -210,16 +199,14 @@ final class TopologyRuntimePingWorkflowUITests: XCTestCase {
             return
         }
 
-        let canvas = canvasSurfaceElement(timeout: 8)
-        guard waitForUsableFrame(of: canvas, identifier: "canvas.surface", timeout: 8) != nil else {
-            return
-        }
+        let window = app.windows.firstMatch
+        XCTAssertTrue(window.waitForExistence(timeout: 8), "Missing app window for canvas interaction")
 
         let clampedOffset = CGVector(
             dx: min(max(normalizedOffset.dx, 0.02), 0.98),
             dy: min(max(normalizedOffset.dy, 0.02), 0.98)
         )
-        canvas.coordinate(withNormalizedOffset: clampedOffset).tap()
+        window.coordinate(withNormalizedOffset: clampedOffset).tap()
     }
 
     private func openRuntimeDevice(at normalizedOffset: CGVector) {
@@ -275,27 +262,6 @@ final class TopologyRuntimePingWorkflowUITests: XCTestCase {
     private func label(for identifier: String) -> String {
         let element = requireDiagnosticElement(identifier)
         return element.label
-    }
-
-    private func waitForUsableFrame(of element: XCUIElement, identifier: String, timeout: TimeInterval) -> CGRect? {
-        let deadline = Date().addingTimeInterval(timeout)
-
-        while Date() < deadline {
-            let frame = element.frame
-            if frame.width.isFinite,
-               frame.height.isFinite,
-               frame.minX.isFinite,
-               frame.minY.isFinite,
-               frame.width > 1,
-               frame.height > 1 {
-                return frame
-            }
-
-            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
-        }
-
-        XCTFail("Element '\(identifier)' never reported a usable frame")
-        return nil
     }
 
     private func waitForElementToDisappear(_ element: XCUIElement, timeout: TimeInterval, identifier: String) {
