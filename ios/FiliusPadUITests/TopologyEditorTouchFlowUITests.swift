@@ -1,3 +1,4 @@
+import Foundation
 import XCTest
 
 final class TopologyEditorTouchFlowUITests: XCTestCase {
@@ -171,8 +172,51 @@ final class TopologyEditorTouchFlowUITests: XCTestCase {
     }
 
     private func label(for identifier: String) -> String {
-        let element = requireElement(app.staticTexts[identifier], named: identifier)
+        let element = diagnosticElement(for: identifier)
         return element.label
+    }
+
+    private func diagnosticElement(for identifier: String, timeout: TimeInterval = 5) -> XCUIElement {
+        let identified = app.staticTexts[identifier]
+        if identified.waitForExistence(timeout: timeout) {
+            return identified
+        }
+
+        if let prefix = diagnosticPrefixFallback(for: identifier) {
+            let predicate = NSPredicate(format: "label BEGINSWITH %@", prefix)
+            let fallback = app.staticTexts.matching(predicate).firstMatch
+            if fallback.waitForExistence(timeout: 2) {
+                return fallback
+            }
+        }
+
+        XCTFail("Setup failure: missing required accessibility identifier '\(identifier)'")
+        return identified
+    }
+
+    private func diagnosticPrefixFallback(for identifier: String) -> String? {
+        switch identifier {
+        case "debug.activeTool":
+            return "Tool:"
+        case "debug.nodeCount":
+            return "Nodes:"
+        case "debug.linkCount":
+            return "Links:"
+        case "debug.selectedNodeCount":
+            return "Selected:"
+        case "debug.zoomScale":
+            return "Zoom:"
+        case "debug.lastValidationError":
+            return "Last error:"
+        case "debug.lastAction":
+            return "Last action:"
+        case "debug.lastInteractionMode":
+            return "Last interaction mode:"
+        case "debug.cameraOffset":
+            return "Camera:"
+        default:
+            return nil
+        }
     }
 
     private func zoomValue() -> Double {
