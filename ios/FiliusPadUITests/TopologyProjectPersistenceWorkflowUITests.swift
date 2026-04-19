@@ -115,7 +115,7 @@ final class TopologyProjectPersistenceWorkflowUITests: XCTestCase {
         app.launch()
         self.app = app
 
-        _ = requireElement(app.otherElements["canvas.surface"], named: "canvas.surface")
+        _ = requireElement(app.otherElements.matching(identifier: "canvas.surface").firstMatch, named: "canvas.surface")
         _ = requireElement(app.staticTexts["debug.persistenceRevision"], named: "debug.persistenceRevision")
         _ = requireElement(app.staticTexts["debug.lastPersistenceSaveAt"], named: "debug.lastPersistenceSaveAt")
         _ = requireElement(app.staticTexts["debug.lastPersistenceLoadAt"], named: "debug.lastPersistenceLoadAt")
@@ -224,7 +224,7 @@ final class TopologyProjectPersistenceWorkflowUITests: XCTestCase {
     }
 
     private func tapCanvas(at normalizedOffset: CGVector) {
-        let canvas = requireElement(app.otherElements["canvas.surface"], named: "canvas.surface")
+        let canvas = requireElement(app.otherElements.matching(identifier: "canvas.surface").firstMatch, named: "canvas.surface")
         canvas.coordinate(withNormalizedOffset: normalizedOffset).tap()
     }
 
