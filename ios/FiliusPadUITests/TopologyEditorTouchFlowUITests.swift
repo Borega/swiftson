@@ -11,10 +11,10 @@ final class TopologyEditorTouchFlowUITests: XCTestCase {
         app.launch()
 
         _ = requireElement(app.otherElements["canvas.surface"], named: "canvas.surface")
-        _ = requireElement(app.buttons["palette.tool.select"], named: "palette.tool.select")
-        _ = requireElement(app.buttons["palette.tool.connect"], named: "palette.tool.connect")
-        _ = requireElement(app.buttons["palette.tool.place.pc"], named: "palette.tool.place.pc")
-        _ = requireElement(app.buttons["palette.tool.place.switch"], named: "palette.tool.place.switch")
+        _ = requireElement(app.descendants(matching: .any)["palette.tool.select"], named: "palette.tool.select")
+        _ = requireElement(app.descendants(matching: .any)["palette.tool.connect"], named: "palette.tool.connect")
+        _ = requireElement(app.descendants(matching: .any)["palette.tool.place.pc"], named: "palette.tool.place.pc")
+        _ = requireElement(app.descendants(matching: .any)["palette.tool.place.switch"], named: "palette.tool.place.switch")
     }
 
     func testFullTouchFlowMaintainsCoherentDiagnostics() {
@@ -83,13 +83,13 @@ final class TopologyEditorTouchFlowUITests: XCTestCase {
     }
 
     func testMissingIdentifiersAreDetectedExplicitly() {
-        let missingPaletteTool = app.buttons["palette.tool.place.router"]
+        let missingPaletteTool = app.descendants(matching: .any)["palette.tool.place.router"]
         XCTAssertFalse(
             missingPaletteTool.waitForExistence(timeout: 1),
             "Malformed input guard failed: unexpected element resolved for missing identifier"
         )
 
-        let staleCanvasReference = app.otherElements["canvas.surface.stale"]
+        let staleCanvasReference = app.descendants(matching: .any)["canvas.surface.stale"]
         XCTAssertFalse(
             staleCanvasReference.waitForExistence(timeout: 1),
             "Malformed input guard failed: stale canvas identifier should not resolve"
@@ -117,7 +117,7 @@ final class TopologyEditorTouchFlowUITests: XCTestCase {
     }
 
     private func tapButton(_ identifier: String) {
-        let button = requireElement(app.buttons[identifier], named: identifier)
+        let button = requireElement(app.descendants(matching: .any)[identifier], named: identifier)
         button.tap()
     }
 
