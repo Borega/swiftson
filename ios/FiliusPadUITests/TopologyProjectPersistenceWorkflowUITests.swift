@@ -279,7 +279,25 @@ final class TopologyProjectPersistenceWorkflowUITests: XCTestCase {
             named: "canvas.surface",
             timeout: 15
         )
-        canvas.coordinate(withNormalizedOffset: normalizedOffset).tap()
+
+        if canvas.isHittable {
+            canvas.coordinate(withNormalizedOffset: normalizedOffset).tap()
+            return
+        }
+
+        let frame = canvas.frame
+        guard frame.width > 1, frame.height > 1 else {
+            XCTFail("Canvas frame is invalid for coordinate tap: \(frame)")
+            return
+        }
+
+        let absoluteOffset = CGVector(
+            dx: frame.minX + (frame.width * normalizedOffset.dx),
+            dy: frame.minY + (frame.height * normalizedOffset.dy)
+        )
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0))
+            .withOffset(absoluteOffset)
+            .tap()
     }
 
     private func replaceTextField(_ identifier: String, with text: String) {
