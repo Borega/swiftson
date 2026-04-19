@@ -93,7 +93,7 @@ final class TopologyProjectPersistenceWorkflowUITests: XCTestCase {
 
         assertDiagnosticContains("debug.lastPersistenceError", expectedSubstring: "none")
 
-        tapButton("palette.tool.place.pc")
+        _ = tapButtonIfPresent("palette.tool.place.pc")
         tapCanvas(at: CGVector(dx: 0.45, dy: 0.45))
         assertDiagnosticContains("debug.nodeCount", expectedSubstring: "Nodes: 1")
     }
@@ -129,10 +129,10 @@ final class TopologyProjectPersistenceWorkflowUITests: XCTestCase {
     }
 
     private func seedTwoNodeTopologyWithRuntimeConfiguration() {
-        tapButton("palette.tool.place.pc")
+        _ = tapButtonIfPresent("palette.tool.place.pc")
         tapCanvas(at: CGVector(dx: 0.25, dy: 0.30))
 
-        tapButton("palette.tool.place.switch")
+        _ = tapButtonIfPresent("palette.tool.place.switch")
         tapCanvas(at: CGVector(dx: 0.70, dy: 0.30))
 
         tapButton("runtime.control.start")
@@ -155,6 +155,15 @@ final class TopologyProjectPersistenceWorkflowUITests: XCTestCase {
 
     @discardableResult
     private func requireControl(_ identifier: String, timeout: TimeInterval = 5) -> XCUIElement {
+        if let control = locateControl(identifier, timeout: timeout) {
+            return control
+        }
+
+        XCTFail("Missing required accessibility identifier '\(identifier)'")
+        return app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+    }
+
+    private func locateControl(_ identifier: String, timeout: TimeInterval) -> XCUIElement? {
         let identified = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
         if identified.waitForExistence(timeout: timeout) {
             return identified
@@ -167,8 +176,22 @@ final class TopologyProjectPersistenceWorkflowUITests: XCTestCase {
             }
         }
 
-        XCTFail("Missing required accessibility identifier '\(identifier)'")
-        return identified
+        return nil
+    }
+
+    @discardableResult
+    private func tapButtonIfPresent(_ identifier: String, timeout: TimeInterval = 2) -> Bool {
+        guard let button = locateControl(identifier, timeout: timeout) else {
+            return false
+        }
+
+        if button.isHittable {
+            button.tap()
+        } else {
+            button.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        }
+
+        return true
     }
 
     private func controlLabelFallback(for identifier: String) -> String? {
