@@ -130,6 +130,133 @@ run_contract_phase() {
   log "✓ ${phase} passed in ${duration}s"
 }
 
+emit_recovery_workflow_failure_diagnostics() {
+  local result_bundle="$1"
+
+  if [[ ! -d "$result_bundle" ]]; then
+    log "recovery workflow diagnostics: result bundle missing at $result_bundle"
+    return
+  fi
+
+  if ! command -v xcrun >/dev/null 2>&1; then
+    log "recovery workflow diagnostics: xcrun unavailable; skipping xcresult extraction"
+    return
+  fi
+
+  local json_dump
+  json_dump="$(mktemp)"
+
+  if ! xcrun xcresulttool get --legacy --path "$result_bundle" --format json >"$json_dump" 2>/dev/null; then
+    if ! xcrun xcresulttool get --path "$result_bundle" --format json >"$json_dump" 2>/dev/null; then
+      log "recovery workflow diagnostics: xcresulttool could not decode $result_bundle"
+      rm -f "$json_dump"
+      return
+    fi
+  fi
+
+  local python_cmd=""
+  if command -v python3 >/dev/null 2>&1; then
+    python_cmd="python3"
+  elif command -v python >/dev/null 2>&1; then
+    python_cmd="python"
+  else
+    log "recovery workflow diagnostics: python unavailable; falling back to grep"
+    grep -E "TopologyProjectPersistenceWorkflowUITests|failed|failure|assert|Expected|Setup failure|Timed out|persistence|recovery" "$json_dump" | head -n 160 || true
+    rm -f "$json_dump"
+    return
+  fi
+
+  log "recovery workflow diagnostics (xcresult filtered)"
+  "$python_cmd" - "$json_dump" <<'PY'
+import json
+import re
+import sys
+from collections import OrderedDict
+
+path = sys.argv[1]
+with open(path, 'r', encoding='utf-8', errors='replace') as f:
+    data = json.load(f)
+
+patterns = [
+    re.compile(r'TopologyProjectPersistenceWorkflowUITests', re.I),
+    re.compile(r'failed', re.I),
+    re.compile(r'failure', re.I),
+    re.compile(r'Setup failure', re.I),
+    re.compile(r'XCTAssert', re.I),
+    re.compile(r'Expected', re.I),
+    re.compile(r'Timed out', re.I),
+    re.compile(r'persistence', re.I),
+    re.compile(r'recovery', re.I),
+]
+
+lines = []
+
+def walk(node):
+    if isinstance(node, dict):
+        for k, v in node.items():
+            if isinstance(v, str):
+                candidate = f"{k}: {v}"
+                if any(p.search(candidate) for p in patterns):
+                    lines.append(candidate)
+            else:
+                walk(v)
+    elif isinstance(node, list):
+        for item in node:
+            walk(item)
+
+walk(data)
+
+unique = list(OrderedDict.fromkeys(lines))
+for entry in unique[:160]:
+    print(entry)
+
+if not unique:
+    print('no matched failure diagnostics found in xcresult payload')
+PY
+
+  rm -f "$json_dump"
+}
+
+run_recovery_workflow_ui_phase() {
+  local result_bundle="$ROOT_DIR/build/m002-s02-recovery-ui.xcresult"
+  rm -rf "$result_bundle"
+
+  local started_at
+  started_at="$(date +%s)"
+
+  log "▶ Recovery workflow UI tests"
+
+  set +e
+  run_with_optional_timeout \
+    xcodebuild \
+    -project "$PROJECT_PATH" \
+    -scheme "$SCHEME" \
+    -destination "$DESTINATION" \
+    -resultBundlePath "$result_bundle" \
+    -only-testing:FiliusPadUITests/TopologyProjectPersistenceWorkflowUITests \
+    test
+  local status=$?
+  set -e
+
+  local finished_at
+  finished_at="$(date +%s)"
+  local duration=$((finished_at - started_at))
+
+  if [[ $status -ne 0 ]]; then
+    if [[ $status -eq 124 ]]; then
+      log "✗ Recovery workflow UI tests timed out after ${duration}s"
+    else
+      log "✗ Recovery workflow UI tests failed after ${duration}s"
+    fi
+
+    log "  command: xcodebuild -project $PROJECT_PATH -scheme $SCHEME -destination $DESTINATION -resultBundlePath $result_bundle -only-testing:FiliusPadUITests/TopologyProjectPersistenceWorkflowUITests test"
+    emit_recovery_workflow_failure_diagnostics "$result_bundle"
+    exit "$status"
+  fi
+
+  log "✓ Recovery workflow UI tests passed in ${duration}s"
+}
+
 ensure_file_exists() {
   local file="$1"
   local code="$2"
@@ -285,14 +412,7 @@ run_phase \
   -only-testing:FiliusPadTests/TopologyEditorDiagnosticsTests \
   test
 
-run_phase \
-  "Recovery workflow UI tests" \
-  xcodebuild \
-  -project "$PROJECT_PATH" \
-  -scheme "$SCHEME" \
-  -destination "$DESTINATION" \
-  -only-testing:FiliusPadUITests/TopologyProjectPersistenceWorkflowUITests \
-  test
+run_recovery_workflow_ui_phase
 
 run_phase \
   "Project build" \
