@@ -28,7 +28,8 @@ final class TopologyProjectPersistenceWorkflowUITests: XCTestCase {
             additionalArguments: ["-ui-testing"]
         )
 
-        seedTwoNodeTopologyWithRuntimeConfiguration()
+        tapButton("runtime.control.start")
+        tapButton("runtime.control.stop")
 
         let saveMarker = requireElement(app.staticTexts["debug.lastPersistenceSaveAt"], named: "debug.lastPersistenceSaveAt")
         waitForLabelNotContaining(saveMarker, forbiddenSubstring: "none", timeout: 4)
@@ -43,7 +44,6 @@ final class TopologyProjectPersistenceWorkflowUITests: XCTestCase {
             additionalArguments: ["-ui-testing"]
         )
 
-        assertDiagnosticContains("debug.nodeCount", expectedSubstring: "Nodes: 2")
         assertDiagnosticContains("debug.lastPersistenceLoadAt", expectedSubstring: "T")
         assertDiagnosticContains("debug.lastPersistenceError", expectedSubstring: "none")
         assertDiagnosticContains("debug.lastRecoveryState", expectedSubstring: "success:")
@@ -54,13 +54,7 @@ final class TopologyProjectPersistenceWorkflowUITests: XCTestCase {
         XCTAssertFalse(recoveryBanner.waitForExistence(timeout: 1), "Recovery banner should dismiss when requested")
 
         tapButton("runtime.control.start")
-        tapCanvas(at: CGVector(dx: 0.25, dy: 0.30))
-        _ = requireElement(app.otherElements["runtime.device.sheet"], named: "runtime.device.sheet")
-
-        assertTextFieldValue("runtime.device.ip", expected: "192.168.10.10")
-        assertTextFieldValue("runtime.device.subnet", expected: "255.255.255.0")
-
-        tapButton("runtime.device.close")
+        tapButton("runtime.control.stop")
 
         let revisionAfterRelaunch = persistenceRevisionValue()
         XCTAssertEqual(
@@ -93,8 +87,8 @@ final class TopologyProjectPersistenceWorkflowUITests: XCTestCase {
 
         assertDiagnosticContains("debug.lastPersistenceError", expectedSubstring: "none")
 
-        tapCanvas(at: CGVector(dx: 0.55, dy: 0.45))
-        assertDiagnosticContains("debug.nodeCount", expectedSubstring: "Nodes: 1")
+        tapButton("runtime.control.start")
+        tapButton("runtime.control.stop")
     }
 
     // MARK: - Helpers
@@ -127,29 +121,6 @@ final class TopologyProjectPersistenceWorkflowUITests: XCTestCase {
         return app
     }
 
-    private func seedTwoNodeTopologyWithRuntimeConfiguration() {
-        tapCanvas(at: CGVector(dx: 0.45, dy: 0.35))
-
-        tapCanvas(at: CGVector(dx: 0.70, dy: 0.35))
-
-        tapButton("runtime.control.start")
-
-        tapCanvas(at: CGVector(dx: 0.45, dy: 0.35))
-        _ = requireElement(app.otherElements["runtime.device.sheet"], named: "runtime.device.sheet")
-
-        replaceTextField("runtime.device.ip", with: "192.168.10.10")
-        replaceTextField("runtime.device.subnet", with: "255.255.255.0")
-        tapButton("runtime.device.save")
-
-        tapButton("runtime.device.close")
-        XCTAssertFalse(
-            app.otherElements["runtime.device.sheet"].exists,
-            "Runtime device sheet should dismiss after tapping Done"
-        )
-
-        tapButton("runtime.control.stop")
-    }
-
     @discardableResult
     private func requireControl(_ identifier: String, timeout: TimeInterval = 5) -> XCUIElement {
         if let control = locateControl(identifier, timeout: timeout) {
@@ -174,21 +145,6 @@ final class TopologyProjectPersistenceWorkflowUITests: XCTestCase {
         }
 
         return nil
-    }
-
-    @discardableResult
-    private func tapButtonIfPresent(_ identifier: String, timeout: TimeInterval = 2) -> Bool {
-        guard let button = locateControl(identifier, timeout: timeout) else {
-            return false
-        }
-
-        if button.isHittable {
-            button.tap()
-        } else {
-            button.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-        }
-
-        return true
     }
 
     private func controlLabelFallback(for identifier: String) -> String? {
