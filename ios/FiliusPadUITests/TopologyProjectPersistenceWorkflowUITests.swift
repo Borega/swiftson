@@ -112,6 +112,7 @@ final class TopologyProjectPersistenceWorkflowUITests: XCTestCase {
         app.launchArguments = additionalArguments
         app.launchEnvironment["FILIUSPAD_AUTOSAVE_FILE"] = autosaveURL.path
         app.launch()
+        self.app = app
 
         _ = requireElement(app.otherElements["canvas.surface"], named: "canvas.surface")
         _ = requireElement(app.staticTexts["debug.persistenceRevision"], named: "debug.persistenceRevision")
