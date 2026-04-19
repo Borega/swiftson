@@ -206,10 +206,17 @@ struct FiliusPadApp: App {
         let environment = processInfo.environment
         let arguments = Set(processInfo.arguments)
 
+        let isUITesting = arguments.contains("-ui-testing")
+
         let autosaveFileURL: URL = {
             if let overridePath = environment["FILIUSPAD_AUTOSAVE_FILE"]?.trimmingCharacters(in: .whitespacesAndNewlines),
                !overridePath.isEmpty {
                 return URL(fileURLWithPath: overridePath)
+            }
+
+            if isUITesting {
+                let filename = "ui-testing-autosave-\(UUID().uuidString).topology.json"
+                return FileManager.default.temporaryDirectory.appendingPathComponent(filename)
             }
 
             return defaultAutosaveFileURL

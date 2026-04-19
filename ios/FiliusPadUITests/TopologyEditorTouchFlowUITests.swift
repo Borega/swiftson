@@ -1,23 +1,13 @@
-import Foundation
 import XCTest
 
 final class TopologyEditorTouchFlowUITests: XCTestCase {
     private var app: XCUIApplication!
-    private var autosaveFileURL: URL?
 
     override func setUpWithError() throws {
         continueAfterFailure = false
 
-        let autosaveURL = makeAutosaveURL()
-        if FileManager.default.fileExists(atPath: autosaveURL.path) {
-            try? FileManager.default.removeItem(at: autosaveURL)
-        }
-
-        autosaveFileURL = autosaveURL
-
         app = XCUIApplication()
         app.launchArguments = ["-ui-testing"]
-        app.launchEnvironment["FILIUSPAD_AUTOSAVE_FILE"] = autosaveURL.path
         app.launch()
 
         _ = requireElement(app.otherElements["canvas.surface"], named: "canvas.surface")
@@ -109,11 +99,6 @@ final class TopologyEditorTouchFlowUITests: XCTestCase {
     override func tearDownWithError() throws {
         app?.terminate()
         app = nil
-
-        if let autosaveFileURL {
-            try? FileManager.default.removeItem(at: autosaveFileURL)
-        }
-        autosaveFileURL = nil
     }
 
     // MARK: - Helpers
@@ -161,10 +146,5 @@ final class TopologyEditorTouchFlowUITests: XCTestCase {
         let labelText = label(for: "debug.zoomScale")
             .replacingOccurrences(of: "Zoom: ", with: "")
         return Double(labelText) ?? 0
-    }
-
-    private func makeAutosaveURL() -> URL {
-        let filename = "TopologyEditorTouchFlowUITests-\(UUID().uuidString).json"
-        return FileManager.default.temporaryDirectory.appendingPathComponent(filename)
     }
 }
