@@ -785,7 +785,7 @@ final class TopologyEditorReducerTests: XCTestCase {
 
         TopologyEditorReducer.reduce(
             state: &state,
-            action: .panCanvas(delta: CGSize(width: .infinity, height: 1))
+            action: .panCanvas(delta: CGSize(width: CGFloat.infinity, height: 1))
         )
         XCTAssertEqual(state.persistenceRevision, startingRevision)
 

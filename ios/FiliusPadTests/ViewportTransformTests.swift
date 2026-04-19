@@ -23,7 +23,7 @@ final class ViewportTransformTests: XCTestCase {
     func testPanWithInvalidDeltaKeepsPreviousTransform() {
         let base = ViewportTransform(offset: CGSize(width: 20, height: 30), scale: 1)
 
-        let invalid = base.panned(by: CGSize(width: .infinity, height: 15))
+        let invalid = base.panned(by: CGSize(width: CGFloat.infinity, height: 15))
         XCTAssertEqual(invalid, base)
     }
 
