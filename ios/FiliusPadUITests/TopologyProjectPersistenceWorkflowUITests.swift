@@ -93,7 +93,7 @@ final class TopologyProjectPersistenceWorkflowUITests: XCTestCase {
 
         assertDiagnosticContains("debug.lastPersistenceError", expectedSubstring: "none")
 
-        tapCanvas(at: CGVector(dx: 0.45, dy: 0.45))
+        tapCanvas(at: CGVector(dx: 0.55, dy: 0.45))
         assertDiagnosticContains("debug.nodeCount", expectedSubstring: "Nodes: 1")
     }
 
@@ -128,13 +128,13 @@ final class TopologyProjectPersistenceWorkflowUITests: XCTestCase {
     }
 
     private func seedTwoNodeTopologyWithRuntimeConfiguration() {
-        tapCanvas(at: CGVector(dx: 0.25, dy: 0.30))
+        tapCanvas(at: CGVector(dx: 0.45, dy: 0.35))
 
-        tapCanvas(at: CGVector(dx: 0.70, dy: 0.30))
+        tapCanvas(at: CGVector(dx: 0.70, dy: 0.35))
 
         tapButton("runtime.control.start")
 
-        tapCanvas(at: CGVector(dx: 0.25, dy: 0.30))
+        tapCanvas(at: CGVector(dx: 0.45, dy: 0.35))
         _ = requireElement(app.otherElements["runtime.device.sheet"], named: "runtime.device.sheet")
 
         replaceTextField("runtime.device.ip", with: "192.168.10.10")
@@ -260,44 +260,8 @@ final class TopologyProjectPersistenceWorkflowUITests: XCTestCase {
     }
 
     private func tapCanvas(at normalizedOffset: CGVector) {
-        let canvasQuery = app.otherElements.matching(identifier: "canvas.surface")
-        let canvasCount = canvasQuery.count
-
-        var resolvedCanvas: XCUIElement?
-        if canvasCount > 0 {
-            for index in 0..<canvasCount {
-                let candidate = canvasQuery.element(boundBy: index)
-                if candidate.exists && candidate.isHittable {
-                    resolvedCanvas = candidate
-                    break
-                }
-            }
-        }
-
-        let canvas = requireElement(
-            resolvedCanvas ?? canvasQuery.firstMatch,
-            named: "canvas.surface",
-            timeout: 15
-        )
-
-        if canvas.isHittable {
-            canvas.coordinate(withNormalizedOffset: normalizedOffset).tap()
-            return
-        }
-
-        let frame = canvas.frame
-        guard frame.width > 1, frame.height > 1 else {
-            XCTFail("Canvas frame is invalid for coordinate tap: \(frame)")
-            return
-        }
-
-        let absoluteOffset = CGVector(
-            dx: frame.minX + (frame.width * normalizedOffset.dx),
-            dy: frame.minY + (frame.height * normalizedOffset.dy)
-        )
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0))
-            .withOffset(absoluteOffset)
-            .tap()
+        let window = requireElement(app.windows.firstMatch, named: "main.window", timeout: 15)
+        window.coordinate(withNormalizedOffset: normalizedOffset).tap()
     }
 
     private func replaceTextField(_ identifier: String, with text: String) {
