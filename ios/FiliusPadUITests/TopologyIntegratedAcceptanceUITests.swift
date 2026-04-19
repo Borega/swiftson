@@ -621,13 +621,25 @@ final class TopologyIntegratedAcceptanceUITests: XCTestCase {
             return
         }
 
-        let window = app.windows.firstMatch
-        XCTAssertTrue(window.waitForExistence(timeout: 8), "Missing app window for canvas interaction")
-
         let clampedOffset = CGVector(
             dx: min(max(normalizedOffset.dx, 0.02), 0.98),
             dy: min(max(normalizedOffset.dy, 0.02), 0.98)
         )
+
+        let canvas = canvasSurfaceElement(timeout: 8)
+        let frame = canvas.frame
+        if frame.width.isFinite,
+           frame.height.isFinite,
+           frame.minX.isFinite,
+           frame.minY.isFinite,
+           frame.width > 1,
+           frame.height > 1 {
+            canvas.coordinate(withNormalizedOffset: clampedOffset).tap()
+            return
+        }
+
+        let window = app.windows.firstMatch
+        XCTAssertTrue(window.waitForExistence(timeout: 8), "Missing app window for canvas interaction")
         window.coordinate(withNormalizedOffset: clampedOffset).tap()
     }
 
