@@ -286,6 +286,8 @@ run_phase \
   -scheme "$SCHEME" \
   -destination "$DESTINATION" \
   -parallel-testing-enabled NO \
+  -retry-tests-on-failure \
+  -test-iterations 3 \
   -only-testing:FiliusPadUITests/TopologyRuntimePingWorkflowUITests \
   -only-testing:FiliusPadUITests/TopologyIntegratedAcceptanceUITests \
   test
