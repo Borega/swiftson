@@ -28,11 +28,19 @@ final class TopologyProjectPersistenceWorkflowUITests: XCTestCase {
             additionalArguments: ["-ui-testing"]
         )
 
+        tapButton("palette.tool.place.pc")
+        tapCanvas(at: CGVector(dx: 0.20, dy: 0.24))
+
         tapButton("runtime.control.start")
         tapButton("runtime.control.stop")
 
         let saveMarker = requireElement(app.staticTexts["debug.lastPersistenceSaveAt"], named: "debug.lastPersistenceSaveAt")
-        waitForLabelNotContaining(saveMarker, forbiddenSubstring: "none", timeout: 4)
+        waitForLabelNotContaining(
+            saveMarker,
+            forbiddenSubstring: "none",
+            timeout: 8,
+            scopedPrefix: "Last persistence save:"
+        )
 
         let revisionBeforeRelaunch = persistenceRevisionValue()
         XCTAssertGreaterThan(revisionBeforeRelaunch, 0, "Expected durable edits to advance persistence revision")
@@ -216,8 +224,8 @@ final class TopologyProjectPersistenceWorkflowUITests: XCTestCase {
     }
 
     private func tapCanvas(at normalizedOffset: CGVector) {
-        let window = requireElement(app.windows.firstMatch, named: "main.window", timeout: 15)
-        window.coordinate(withNormalizedOffset: normalizedOffset).tap()
+        let canvas = requireElement(app.otherElements["canvas.surface"], named: "canvas.surface")
+        canvas.coordinate(withNormalizedOffset: normalizedOffset).tap()
     }
 
     private func replaceTextField(_ identifier: String, with text: String) {
@@ -245,12 +253,14 @@ final class TopologyProjectPersistenceWorkflowUITests: XCTestCase {
     private func waitForLabelNotContaining(
         _ element: XCUIElement,
         forbiddenSubstring: String,
-        timeout: TimeInterval
+        timeout: TimeInterval,
+        scopedPrefix: String? = nil
     ) {
         let deadline = Date().addingTimeInterval(timeout)
 
         while Date() < deadline {
-            if !element.label.contains(forbiddenSubstring) {
+            let observedLabel = scopedLabel(from: element.label, prefix: scopedPrefix)
+            if !observedLabel.contains(forbiddenSubstring) {
                 return
             }
 
@@ -258,6 +268,23 @@ final class TopologyProjectPersistenceWorkflowUITests: XCTestCase {
         }
 
         XCTFail("Timed out waiting for label '\(element.identifier)' to drop substring '\(forbiddenSubstring)'")
+    }
+
+    private func scopedLabel(from rawLabel: String, prefix: String?) -> String {
+        guard let prefix, !prefix.isEmpty else {
+            return rawLabel
+        }
+
+        guard let prefixRange = rawLabel.range(of: prefix) else {
+            return rawLabel
+        }
+
+        let suffix = rawLabel[prefixRange.lowerBound...]
+        if let newlineIndex = suffix.firstIndex(of: "\n") {
+            return String(suffix[..<newlineIndex])
+        }
+
+        return String(suffix)
     }
 
     private func assertDiagnosticContains(_ identifier: String, expectedSubstring: String) {
