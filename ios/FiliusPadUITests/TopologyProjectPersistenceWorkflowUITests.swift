@@ -115,7 +115,7 @@ final class TopologyProjectPersistenceWorkflowUITests: XCTestCase {
         app.launch()
         self.app = app
 
-        _ = requireElement(app.otherElements.matching(identifier: "canvas.surface").firstMatch, named: "canvas.surface")
+        _ = canvasSurfaceElement()
         _ = requireElement(app.staticTexts["debug.persistenceRevision"], named: "debug.persistenceRevision")
         _ = requireElement(app.staticTexts["debug.lastPersistenceSaveAt"], named: "debug.lastPersistenceSaveAt")
         _ = requireElement(app.staticTexts["debug.lastPersistenceLoadAt"], named: "debug.lastPersistenceLoadAt")
@@ -223,8 +223,31 @@ final class TopologyProjectPersistenceWorkflowUITests: XCTestCase {
         button.tap()
     }
 
+    @discardableResult
+    private func canvasSurfaceElement(timeout: TimeInterval = 5) -> XCUIElement {
+        let canvases = app.otherElements.matching(identifier: "canvas.surface")
+        let deadline = Date().addingTimeInterval(timeout)
+
+        while Date() < deadline {
+            let matches = canvases.allElementsBoundByIndex.filter(\.exists)
+
+            if let hittableMatch = matches.first(where: { $0.isHittable }) {
+                return hittableMatch
+            }
+
+            if let firstMatch = matches.first {
+                return firstMatch
+            }
+
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+
+        XCTFail("Missing required accessibility identifier 'canvas.surface'")
+        return canvases.firstMatch
+    }
+
     private func tapCanvas(at normalizedOffset: CGVector) {
-        let canvas = requireElement(app.otherElements.matching(identifier: "canvas.surface").firstMatch, named: "canvas.surface")
+        let canvas = canvasSurfaceElement(timeout: 8)
         canvas.coordinate(withNormalizedOffset: normalizedOffset).tap()
     }
 
