@@ -226,6 +226,8 @@ final class TopologyProjectPersistenceWorkflowUITests: XCTestCase {
             return "Nodes:"
         case "debug.openedRuntimeDevice":
             return "Opened runtime device:"
+        case "persistence.error.alert":
+            return "Operation:"
         default:
             return nil
         }
@@ -238,7 +240,10 @@ final class TopologyProjectPersistenceWorkflowUITests: XCTestCase {
     }
 
     private func tapCanvas(at normalizedOffset: CGVector) {
-        let canvas = requireElement(app.otherElements["canvas.surface"], named: "canvas.surface")
+        let canvas = requireElement(
+            app.otherElements.matching(identifier: "canvas.surface").firstMatch,
+            named: "canvas.surface"
+        )
         canvas.coordinate(withNormalizedOffset: normalizedOffset).tap()
     }
 
