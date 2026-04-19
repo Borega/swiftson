@@ -192,6 +192,7 @@ final class TopologyRuntimePingWorkflowUITests: XCTestCase {
         XCTFail("Timed out waiting for '\(identifier)' to disappear")
     }
 
+    private func assertAnyConsoleLineContains(_ expectedText: String) {
         let predicate = NSPredicate(format: "identifier BEGINSWITH %@", "runtime.device.console.line.")
         let lines = app.staticTexts.matching(predicate)
 
