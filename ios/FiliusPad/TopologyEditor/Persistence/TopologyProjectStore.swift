@@ -351,7 +351,7 @@ private final class TopologyFLSConfigurationParser: NSObject, XMLParserDelegate 
     private var parsingString = false
     private var parsingInt = false
 
-    private var rectangleFieldName: String?
+    private var rectangleFieldNameStack: [String?] = []
     private var rectangleGetFieldDepth = 0
     private var rectangleSetDepth = 0
 
@@ -432,6 +432,7 @@ private final class TopologyFLSConfigurationParser: NSObject, XMLParserDelegate 
 
             if context.method == "getField", propertyStack.contains("bounds") {
                 rectangleGetFieldDepth += 1
+                rectangleFieldNameStack.append(nil)
             }
 
             if context.method == "set", propertyStack.contains("bounds") {
@@ -476,7 +477,9 @@ private final class TopologyFLSConfigurationParser: NSObject, XMLParserDelegate 
             }
 
             if rectangleGetFieldDepth > 0, propertyStack.contains("bounds") {
-                rectangleFieldName = value
+                if !rectangleFieldNameStack.isEmpty {
+                    rectangleFieldNameStack[rectangleFieldNameStack.count - 1] = value
+                }
             }
 
         case "int":
@@ -486,7 +489,7 @@ private final class TopologyFLSConfigurationParser: NSObject, XMLParserDelegate 
                rectangleSetDepth > 0,
                propertyStack.contains("bounds"),
                let number = Int(value),
-               let fieldName = rectangleFieldName
+               let fieldName = rectangleFieldNameStack.last.flatMap({ $0 })
             {
                 if fieldName == "x" {
                     currentNode?.x = number
@@ -499,6 +502,9 @@ private final class TopologyFLSConfigurationParser: NSObject, XMLParserDelegate 
             if let context = voidStack.popLast() {
                 if context.method == "getField", rectangleGetFieldDepth > 0 {
                     rectangleGetFieldDepth -= 1
+                    if !rectangleFieldNameStack.isEmpty {
+                        _ = rectangleFieldNameStack.popLast()
+                    }
                 }
 
                 if context.method == "set", rectangleSetDepth > 0 {
