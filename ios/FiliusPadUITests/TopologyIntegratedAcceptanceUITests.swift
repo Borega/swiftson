@@ -499,19 +499,30 @@ final class TopologyIntegratedAcceptanceUITests: XCTestCase {
         }
 
         XCTFail("Missing required accessibility identifier '\(identifier)'")
-        return app.buttons[identifier]
+        return app.descendants(matching: .any)[identifier]
     }
 
     private func locateControl(_ identifier: String, timeout: TimeInterval) -> XCUIElement? {
-        let direct = app.buttons[identifier]
-        if direct.waitForExistence(timeout: timeout) {
+        let direct = app.descendants(matching: .any)[identifier]
+        let directTimeout = min(timeout, 2)
+        if direct.waitForExistence(timeout: directTimeout) {
             return direct
         }
 
         if let fallbackLabel = controlLabelFallback(for: identifier) {
-            let fallbackButton = app.buttons.matching(NSPredicate(format: "label == %@", fallbackLabel)).firstMatch
-            if fallbackButton.waitForExistence(timeout: 2) {
-                return fallbackButton
+            let scopedPredicate = NSPredicate(
+                format: "label == %@ AND identifier != %@",
+                fallbackLabel,
+                "palette.toolbar.content"
+            )
+            let scopedFallback = app.buttons.matching(scopedPredicate).firstMatch
+            if scopedFallback.waitForExistence(timeout: 2) {
+                return scopedFallback
+            }
+
+            let broadFallback = app.buttons.matching(NSPredicate(format: "label == %@", fallbackLabel)).firstMatch
+            if broadFallback.waitForExistence(timeout: 1) {
+                return broadFallback
             }
         }
 
@@ -618,8 +629,71 @@ final class TopologyIntegratedAcceptanceUITests: XCTestCase {
             dy: min(max(normalizedOffset.dy, 0.02), 0.98)
         )
 
-        let canvas = canvasSurfaceElement(timeout: 8)
-        canvas.coordinate(withNormalizedOffset: clampedOffset).tap()
+        _ = canvasSurfaceElement(timeout: 8)
+
+        guard let interactionFrame = canvasInteractionFrame(timeout: 3) else {
+            XCTFail("Canvas interaction frame never became finite before tap")
+            return
+        }
+
+        let target = CGVector(
+            dx: interactionFrame.minX + (interactionFrame.width * clampedOffset.dx),
+            dy: interactionFrame.minY + (interactionFrame.height * clampedOffset.dy)
+        )
+
+        guard target.dx.isFinite, target.dy.isFinite else {
+            XCTFail("Canvas tap resolved to non-finite screen target: \(target)")
+            return
+        }
+
+        app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(target)
+            .tap()
+    }
+
+    private func canvasInteractionFrame(timeout: TimeInterval) -> CGRect? {
+        let deadline = Date().addingTimeInterval(timeout)
+        let toolbar = app.otherElements.matching(identifier: "palette.toolbar").firstMatch
+        let debugOverlay = app.otherElements["debug.overlay"]
+        let window = app.windows.element(boundBy: 0)
+
+        while Date() < deadline {
+            _ = toolbar.waitForExistence(timeout: 0.2)
+            _ = debugOverlay.waitForExistence(timeout: 0.2)
+
+            let windowFrame = window.frame
+            let toolbarFrame = toolbar.frame
+            let overlayFrame = debugOverlay.frame
+
+            let windowFinite = windowFrame.minX.isFinite &&
+                windowFrame.minY.isFinite &&
+                windowFrame.width.isFinite &&
+                windowFrame.height.isFinite &&
+                windowFrame.width > 50 &&
+                windowFrame.height > 50
+
+            let toolbarFinite = toolbarFrame.minX.isFinite &&
+                toolbarFrame.maxX.isFinite &&
+                toolbarFrame.maxY.isFinite
+
+            let overlayFinite = overlayFrame.minY.isFinite
+
+            if windowFinite && toolbarFinite {
+                let minX = max(windowFrame.minX + 16, toolbarFrame.minX)
+                let maxX = min(windowFrame.maxX - 16, toolbarFrame.maxX)
+
+                let minY = toolbarFrame.maxY + 12
+                let maxY = overlayFinite ? (overlayFrame.minY - 12) : (windowFrame.maxY - 140)
+
+                if maxX > minX + 40, maxY > minY + 40 {
+                    return CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
+                }
+            }
+
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+
+        return nil
     }
 
     private func replaceTextField(_ identifier: String, with text: String) {

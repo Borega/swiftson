@@ -223,15 +223,16 @@ final class TopologyRuntimePingWorkflowUITests: XCTestCase {
             dy: min(max(normalizedOffset.dy, 0.02), 0.98)
         )
 
-        let canvas = canvasSurfaceElement(timeout: 8)
-        guard let frame = waitForFiniteCanvasFrame(canvas, timeout: 3) else {
-            XCTFail("Canvas frame never became finite before tap")
+        _ = canvasSurfaceElement(timeout: 8)
+
+        guard let interactionFrame = canvasInteractionFrame(timeout: 3) else {
+            XCTFail("Canvas interaction frame never became finite before tap")
             return
         }
 
         let target = CGVector(
-            dx: frame.minX + (frame.width * clampedOffset.dx),
-            dy: frame.minY + (frame.height * clampedOffset.dy)
+            dx: interactionFrame.minX + (interactionFrame.width * clampedOffset.dx),
+            dy: interactionFrame.minY + (interactionFrame.height * clampedOffset.dy)
         )
 
         guard target.dx.isFinite, target.dy.isFinite else {
@@ -244,18 +245,43 @@ final class TopologyRuntimePingWorkflowUITests: XCTestCase {
             .tap()
     }
 
-    private func waitForFiniteCanvasFrame(_ canvas: XCUIElement, timeout: TimeInterval) -> CGRect? {
+    private func canvasInteractionFrame(timeout: TimeInterval) -> CGRect? {
         let deadline = Date().addingTimeInterval(timeout)
+        let toolbar = app.otherElements.matching(identifier: "palette.toolbar").firstMatch
+        let debugOverlay = app.otherElements["debug.overlay"]
+        let window = app.windows.element(boundBy: 0)
 
         while Date() < deadline {
-            let frame = canvas.frame
-            if frame.minX.isFinite,
-               frame.minY.isFinite,
-               frame.width.isFinite,
-               frame.height.isFinite,
-               frame.width > 1,
-               frame.height > 1 {
-                return frame
+            _ = toolbar.waitForExistence(timeout: 0.2)
+            _ = debugOverlay.waitForExistence(timeout: 0.2)
+
+            let windowFrame = window.frame
+            let toolbarFrame = toolbar.frame
+            let overlayFrame = debugOverlay.frame
+
+            let windowFinite = windowFrame.minX.isFinite &&
+                windowFrame.minY.isFinite &&
+                windowFrame.width.isFinite &&
+                windowFrame.height.isFinite &&
+                windowFrame.width > 50 &&
+                windowFrame.height > 50
+
+            let toolbarFinite = toolbarFrame.minX.isFinite &&
+                toolbarFrame.maxX.isFinite &&
+                toolbarFrame.maxY.isFinite
+
+            let overlayFinite = overlayFrame.minY.isFinite
+
+            if windowFinite && toolbarFinite {
+                let minX = max(windowFrame.minX + 16, toolbarFrame.minX)
+                let maxX = min(windowFrame.maxX - 16, toolbarFrame.maxX)
+
+                let minY = toolbarFrame.maxY + 12
+                let maxY = overlayFinite ? (overlayFrame.minY - 12) : (windowFrame.maxY - 140)
+
+                if maxX > minX + 40, maxY > minY + 40 {
+                    return CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
+                }
             }
 
             RunLoop.current.run(until: Date().addingTimeInterval(0.1))
