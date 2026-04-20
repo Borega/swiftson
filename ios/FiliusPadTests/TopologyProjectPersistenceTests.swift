@@ -567,7 +567,129 @@ final class TopologyProjectPersistenceTests: XCTestCase {
         XCTAssertEqual(imported.report.warnings, [])
     }
 
+    func testSampleFLSWorkflowImportEditExportReimport() throws {
+        let fixtureData = try loadSampleFLSFixture(named: "einfaches_rechnernetz_komplett.konfiguration.xml")
+        let imported = try TopologyProjectStore.importFiliusConfigurationXML(fixtureData)
+
+        XCTAssertEqual(imported.report.importedNodeCount, 12)
+        XCTAssertEqual(imported.report.skippedNodeCount, 0)
+        XCTAssertEqual(imported.report.warnings, [])
+
+        var editedState = imported.state
+        let addedNode = TopologyNode(
+            id: uuid("99999999-9999-9999-9999-999999999999"),
+            kind: .networkSwitch,
+            position: CGPoint(x: 640, y: 360)
+        )
+        editedState.graph.appendNode(addedNode)
+
+        let exported = TopologyProjectStore.exportFiliusConfigurationXML(
+            from: editedState,
+            filiusVersion: imported.report.filiusVersion ?? "Filius version: 2.1.0 (fixture workflow)"
+        )
+
+        let reimported = try TopologyProjectStore.importFiliusConfigurationXML(exported)
+
+        XCTAssertEqual(reimported.report.importedNodeCount, imported.report.importedNodeCount + 1)
+        XCTAssertEqual(reimported.report.skippedNodeCount, 0)
+        XCTAssertEqual(reimported.report.warnings, [])
+
+        var expectedNodeSemantics = semanticNodeSignature(imported.state.graph.nodes)
+        expectedNodeSemantics.append("networkSwitch@640x360")
+        expectedNodeSemantics.sort()
+
+        XCTAssertEqual(semanticNodeSignature(reimported.state.graph.nodes), expectedNodeSemantics)
+    }
+
+    func testSampleFLSImportReportsUnsupportedLegacyClassesWithAttribution() throws {
+        let fixtureData = try loadSampleFLSFixture(named: "zwei_rechnernetze_komplett.konfiguration.xml")
+
+        let result = try TopologyProjectStore.importFiliusConfigurationXML(fixtureData)
+
+        XCTAssertEqual(result.report.importedNodeCount, 5)
+        XCTAssertEqual(result.report.skippedNodeCount, 1)
+        XCTAssertEqual(
+            result.report.warnings,
+            ["Skipped unsupported FILIUS node class 'filius.hardware.knoten.Vermittlungsrechner' in konfiguration.xml"]
+        )
+
+        let importedKinds = result.state.graph.nodes.reduce(into: [String: Int]()) { partialResult, node in
+            partialResult[node.kind.rawValue, default: 0] += 1
+        }
+        XCTAssertEqual(importedKinds, ["pc": 3, "networkSwitch": 2])
+    }
+
+    func testSampleFLSFixtureLoaderFailsForMissingFixture() {
+        XCTAssertThrowsError(try loadSampleFLSFixture(named: "does-not-exist.konfiguration.xml")) { error in
+            guard case let FixtureLoadError.missingFixture(relativePath, absolutePath) = error else {
+                XCTFail("Expected missingFixture error, got \(error)")
+                return
+            }
+
+            XCTAssertEqual(relativePath, "ios/FiliusPadTests/Fixtures/FLS/does-not-exist.konfiguration.xml")
+            XCTAssertTrue(absolutePath.hasSuffix(relativePath))
+        }
+    }
+
+    func testSampleFLSFixtureMalformedXMLFailsWithCompatibilityError() throws {
+        let fixtureData = try loadSampleFLSFixture(named: "einfaches_rechnernetz_komplett.konfiguration.xml")
+        let fixtureXML = try XCTUnwrap(String(data: fixtureData, encoding: .utf8))
+        let malformedFixtureXML = fixtureXML.replacingOccurrences(of: "</java>", with: "")
+
+        XCTAssertThrowsError(try TopologyProjectStore.importFiliusConfigurationXML(Data(malformedFixtureXML.utf8))) { error in
+            guard let compatibilityError = error as? TopologyFLSCompatibilityError else {
+                XCTFail("Expected TopologyFLSCompatibilityError, got \(type(of: error))")
+                return
+            }
+
+            XCTAssertEqual(compatibilityError.code, .malformedConfigurationXML)
+            XCTAssertTrue(compatibilityError.detail.contains("konfiguration.xml"))
+        }
+    }
+
     // MARK: - Helpers
+
+    private enum FixtureLoadError: Error, Equatable {
+        case missingFixture(relativePath: String, absolutePath: String)
+        case unreadableFixture(relativePath: String, detail: String)
+    }
+
+    private func loadSampleFLSFixture(named fileName: String, file: StaticString = #filePath) throws -> Data {
+        let relativePath = "ios/FiliusPadTests/Fixtures/FLS/\(fileName)"
+        let fixtureURL = repositoryRootURL(from: file)
+            .appendingPathComponent("ios")
+            .appendingPathComponent("FiliusPadTests")
+            .appendingPathComponent("Fixtures")
+            .appendingPathComponent("FLS")
+            .appendingPathComponent(fileName)
+
+        guard FileManager.default.fileExists(atPath: fixtureURL.path) else {
+            throw FixtureLoadError.missingFixture(relativePath: relativePath, absolutePath: fixtureURL.path)
+        }
+
+        do {
+            return try Data(contentsOf: fixtureURL, options: [.mappedIfSafe])
+        } catch {
+            throw FixtureLoadError.unreadableFixture(relativePath: relativePath, detail: String(describing: error))
+        }
+    }
+
+    private func repositoryRootURL(from file: StaticString = #filePath) -> URL {
+        URL(fileURLWithPath: String(describing: file))
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+    }
+
+    private func semanticNodeSignature(_ nodes: [TopologyNode]) -> [String] {
+        nodes
+            .map { node in
+                let x = Int(node.position.x.rounded())
+                let y = Int(node.position.y.rounded())
+                return "\(node.kind.rawValue)@\(x)x\(y)"
+            }
+            .sorted()
+    }
 
     private func writeJSON(_ object: [String: Any], to fileURL: URL) throws {
         let data = try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
