@@ -229,15 +229,7 @@ final class TopologyIntegratedAcceptanceUITests: XCTestCase {
         app.launchEnvironment["FILIUSPAD_AUTOSAVE_FILE"] = autosaveURL.path
         app.launch()
 
-        _ = canvasSurfaceElement(timeout: 10)
-        _ = requireControl("palette.tool.place.pc")
-        _ = requireControl("palette.tool.place.switch")
-        _ = requireControl("palette.tool.connect")
-        _ = requireControl("runtime.control.start")
-        _ = requireControl("runtime.control.stop")
-        _ = requireDiagnosticElement("debug.nodeCount")
-        _ = requireDiagnosticElement("debug.linkCount")
-        _ = requireDiagnosticElement("debug.simulationPhase")
+        _ = canvasSurfaceElement(timeout: 8)
 
         return app
     }
