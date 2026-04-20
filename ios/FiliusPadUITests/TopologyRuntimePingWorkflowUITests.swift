@@ -108,14 +108,25 @@ final class TopologyRuntimePingWorkflowUITests: XCTestCase {
 
     private func locateControl(_ identifier: String, timeout: TimeInterval) -> XCUIElement? {
         let direct = app.descendants(matching: .any)[identifier]
-        if direct.waitForExistence(timeout: timeout) {
+        let directTimeout = min(timeout, 2)
+        if direct.waitForExistence(timeout: directTimeout) {
             return direct
         }
 
         if let fallbackLabel = controlLabelFallback(for: identifier) {
-            let fallbackButton = app.buttons.matching(NSPredicate(format: "label == %@", fallbackLabel)).firstMatch
-            if fallbackButton.waitForExistence(timeout: 2) {
-                return fallbackButton
+            let scopedPredicate = NSPredicate(
+                format: "label == %@ AND identifier != %@",
+                fallbackLabel,
+                "palette.toolbar.content"
+            )
+            let scopedFallback = app.buttons.matching(scopedPredicate).firstMatch
+            if scopedFallback.waitForExistence(timeout: 2) {
+                return scopedFallback
+            }
+
+            let broadFallback = app.buttons.matching(NSPredicate(format: "label == %@", fallbackLabel)).firstMatch
+            if broadFallback.waitForExistence(timeout: 1) {
+                return broadFallback
             }
         }
 
@@ -243,8 +254,7 @@ final class TopologyRuntimePingWorkflowUITests: XCTestCase {
                frame.width.isFinite,
                frame.height.isFinite,
                frame.width > 1,
-               frame.height > 1,
-               canvas.isHittable {
+               frame.height > 1 {
                 return frame
             }
 
