@@ -319,8 +319,25 @@ final class TopologyRuntimePingWorkflowUITests: XCTestCase {
     }
 
     private func executeCommand(_ command: String) {
+        ensureCommandPromptInstalled()
         replaceTextField("runtime.device.command", with: command)
         tapButton("runtime.device.execute")
+    }
+
+    private func ensureCommandPromptInstalled() {
+        if app.textFields["runtime.device.command"].exists {
+            return
+        }
+
+        if app.staticTexts["runtime.device.command.locked"].exists {
+            tapButton("runtime.device.install.open")
+            tapButton("runtime.device.install.commandPrompt")
+        } else {
+            tapButton("runtime.device.install.open")
+            tapButton("runtime.device.install.commandPrompt")
+        }
+
+        _ = requireElement(app.textFields["runtime.device.command"], named: "runtime.device.command", timeout: 3)
     }
 
     private func replaceTextField(_ identifier: String, with text: String) {

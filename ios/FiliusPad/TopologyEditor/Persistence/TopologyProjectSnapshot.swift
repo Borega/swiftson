@@ -11,6 +11,7 @@ struct TopologyProjectSnapshot: Codable, Equatable {
     let viewport: ViewportTransformSnapshot
     let runtimeDeviceConfigurations: [TopologyRuntimeDeviceConfigurationSnapshot]
     let runtimeDNSRecords: [TopologyRuntimeDNSRecordSnapshot]
+    let runtimeInstalledPrograms: [TopologyRuntimeInstalledProgramSnapshot]
     let persistenceRevision: UInt64
 
     init(
@@ -18,12 +19,14 @@ struct TopologyProjectSnapshot: Codable, Equatable {
         viewport: ViewportTransformSnapshot,
         runtimeDeviceConfigurations: [TopologyRuntimeDeviceConfigurationSnapshot],
         runtimeDNSRecords: [TopologyRuntimeDNSRecordSnapshot],
+        runtimeInstalledPrograms: [TopologyRuntimeInstalledProgramSnapshot],
         persistenceRevision: UInt64
     ) {
         self.graph = graph
         self.viewport = viewport
         self.runtimeDeviceConfigurations = runtimeDeviceConfigurations
         self.runtimeDNSRecords = runtimeDNSRecords
+        self.runtimeInstalledPrograms = runtimeInstalledPrograms
         self.persistenceRevision = persistenceRevision
     }
 
@@ -48,6 +51,18 @@ struct TopologyProjectSnapshot: Codable, Equatable {
                 )
             }
             .sorted { $0.hostname < $1.hostname }
+        runtimeInstalledPrograms = state.runtimeInstalledProgramsByNodeID
+            .flatMap { nodeID, programs in
+                programs.map { program in
+                    TopologyRuntimeInstalledProgramSnapshot(nodeID: nodeID, program: program)
+                }
+            }
+            .sorted {
+                if $0.nodeID.uuidString == $1.nodeID.uuidString {
+                    return $0.program.rawValue < $1.program.rawValue
+                }
+                return $0.nodeID.uuidString < $1.nodeID.uuidString
+            }
         persistenceRevision = state.persistenceRevision
     }
 
@@ -56,6 +71,7 @@ struct TopologyProjectSnapshot: Codable, Equatable {
         case viewport
         case runtimeDeviceConfigurations
         case runtimeDNSRecords
+        case runtimeInstalledPrograms
         case persistenceRevision
     }
 
@@ -76,6 +92,10 @@ struct TopologyProjectSnapshot: Codable, Equatable {
         runtimeDNSRecords = try container.decodeIfPresent(
             [TopologyRuntimeDNSRecordSnapshot].self,
             forKey: .runtimeDNSRecords
+        ) ?? []
+        runtimeInstalledPrograms = try container.decodeIfPresent(
+            [TopologyRuntimeInstalledProgramSnapshot].self,
+            forKey: .runtimeInstalledPrograms
         ) ?? []
         persistenceRevision = try container.decodeIfPresent(UInt64.self, forKey: .persistenceRevision) ?? 0
     }
@@ -114,6 +134,11 @@ struct TopologyProjectSnapshot: Codable, Equatable {
                 )
             }
         )
+        state.runtimeInstalledProgramsByNodeID = runtimeInstalledPrograms.reduce(into: [:]) { partialResult, snapshot in
+            var programs = partialResult[snapshot.nodeID] ?? Set<TopologyRuntimeInstallableProgram>()
+            programs.insert(snapshot.program)
+            partialResult[snapshot.nodeID] = programs
+        }
         state.persistenceRevision = persistenceRevision
         state.lastPersistedRevision = persistenceRevision
 
@@ -399,6 +424,33 @@ struct TopologyRuntimeDNSRecordSnapshot: Codable, Equatable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         hostname = try container.decode(String.self, forKey: .hostname)
         targetIPAddress = try container.decode(String.self, forKey: .targetIPAddress)
+    }
+}
+
+struct TopologyRuntimeInstalledProgramSnapshot: Codable, Equatable {
+    let nodeID: UUID
+    let program: TopologyRuntimeInstallableProgram
+
+    enum CodingKeys: String, CodingKey, CaseIterable {
+        case nodeID
+        case program
+    }
+
+    init(nodeID: UUID, program: TopologyRuntimeInstallableProgram) {
+        self.nodeID = nodeID
+        self.program = program
+    }
+
+    init(from decoder: Decoder) throws {
+        try assertNoUnknownKeys(
+            decoder: decoder,
+            allowedKeys: CodingKeys.self,
+            context: "TopologyRuntimeInstalledProgramSnapshot"
+        )
+
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        nodeID = try container.decode(UUID.self, forKey: .nodeID)
+        program = try container.decode(TopologyRuntimeInstallableProgram.self, forKey: .program)
     }
 }
 

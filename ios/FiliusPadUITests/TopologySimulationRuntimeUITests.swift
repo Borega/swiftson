@@ -99,6 +99,7 @@ final class TopologySimulationRuntimeUITests: XCTestCase {
             "Saving IP should emit runtimeDeviceIPSaved diagnostics"
         )
 
+        ensureCommandPromptInstalled()
         replaceTextField("runtime.device.command", with: "ping")
         tapButton("runtime.device.execute")
 
@@ -158,6 +159,16 @@ final class TopologySimulationRuntimeUITests: XCTestCase {
         }
 
         field.typeText(text)
+    }
+
+    private func ensureCommandPromptInstalled() {
+        if app.textFields["runtime.device.command"].exists {
+            return
+        }
+
+        tapButton("runtime.device.install.open")
+        tapButton("runtime.device.install.commandPrompt")
+        _ = requireElement(app.textFields["runtime.device.command"], named: "runtime.device.command", timeout: 3)
     }
 
     private func assertDiagnosticEquals(_ identifier: String, expected: String) {

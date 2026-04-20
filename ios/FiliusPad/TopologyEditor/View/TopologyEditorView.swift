@@ -149,9 +149,13 @@ struct TopologyEditorView: View {
             nodeID: nodeID,
             nodeKind: node?.kind ?? .unsupported,
             configuration: state.runtimeDeviceConfigurations[nodeID],
+            installedPrograms: state.runtimeInstalledProgramsByNodeID[nodeID] ?? [],
             consoleEntries: state.runtimeConsoleEntriesByNodeID[nodeID] ?? [],
             onSaveConfiguration: { ipAddress, subnetMask in
                 send(.saveRuntimeDeviceIP(nodeID: nodeID, ipAddress: ipAddress, subnetMask: subnetMask))
+            },
+            onInstallProgram: { program in
+                send(.installRuntimeProgram(nodeID: nodeID, program: program))
             },
             onExecuteCommand: { command in
                 send(.executePing(nodeID: nodeID, command: command))

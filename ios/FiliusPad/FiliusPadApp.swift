@@ -26,6 +26,7 @@ struct FiliusPadApp: App {
     var body: some Scene {
         WindowGroup {
             TopologyEditorView(state: $editorState)
+                .preferredColorScheme(.light)
                 .onAppear {
                     guard !hasAttemptedLaunchRestore else {
                         return

@@ -351,7 +351,8 @@ final class TopologyProjectPersistenceTests: XCTestCase {
         XCTAssertEqual(result.report.filiusVersion, "Filius version: 2.1.0 (11.10.2022)")
         XCTAssertEqual(result.report.importedNodeCount, 2)
         XCTAssertEqual(result.report.skippedNodeCount, 1)
-        XCTAssertFalse(result.report.warnings.isEmpty)
+        XCTAssertTrue(result.report.warnings.contains(where: { $0.contains("Skipped unsupported FILIUS node type") }))
+        XCTAssertTrue(result.report.warnings.contains(where: { $0.contains("Router") }))
 
         XCTAssertEqual(result.state.graph.nodes.count, 2)
         XCTAssertEqual(result.state.graph.nodes[0].kind, .pc)
@@ -370,6 +371,25 @@ final class TopologyProjectPersistenceTests: XCTestCase {
 
             XCTAssertEqual(compatibilityError.code, .malformedConfigurationXML)
             XCTAssertFalse(compatibilityError.detail.isEmpty)
+        }
+    }
+
+    func testImportFiliusConfigurationXMLRejectsUnsupportedStructure() {
+        let xml = """
+        <?xml version=\"1.0\" encoding=\"UTF-8\"?>
+        <configuration>
+          <nodeList />
+        </configuration>
+        """
+
+        XCTAssertThrowsError(try TopologyProjectStore.importFiliusConfigurationXML(Data(xml.utf8))) { error in
+            guard let compatibilityError = error as? TopologyFLSCompatibilityError else {
+                XCTFail("Expected TopologyFLSCompatibilityError, got \(type(of: error))")
+                return
+            }
+
+            XCTAssertEqual(compatibilityError.code, .unsupportedConfigurationStructure)
+            XCTAssertTrue(compatibilityError.detail.contains("java.beans.XMLDecoder"))
         }
     }
 

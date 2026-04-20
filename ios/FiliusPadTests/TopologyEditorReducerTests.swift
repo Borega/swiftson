@@ -393,6 +393,34 @@ final class TopologyEditorReducerTests: XCTestCase {
         XCTAssertNil(state.lastRuntimeFault)
     }
 
+    func testSaveRuntimeDeviceIPRejectedForSwitchNodes() {
+        var state = TopologyEditorState()
+        let nodeID = addNode(kind: .networkSwitch, at: CGPoint(x: 10, y: 10), to: &state)
+
+        TopologyEditorReducer.reduce(
+            state: &state,
+            action: .saveRuntimeDeviceIP(nodeID: nodeID, ipAddress: "192.168.1.10", subnetMask: "255.255.255.0")
+        )
+
+        XCTAssertNil(state.runtimeDeviceConfigurations[nodeID])
+        XCTAssertEqual(state.lastRuntimeEvent?.code, .runtimeDeviceIPRejectedInvalidConfiguration)
+        XCTAssertEqual(state.lastRuntimeFault?.code, "ipConfigurationUnsupportedForNodeKind")
+    }
+
+    func testInstallRuntimeProgramRegistersProgramForPCNode() {
+        var state = TopologyEditorState()
+        let nodeID = addNode(kind: .pc, at: CGPoint(x: 10, y: 10), to: &state)
+
+        TopologyEditorReducer.reduce(
+            state: &state,
+            action: .installRuntimeProgram(nodeID: nodeID, program: .commandPrompt)
+        )
+
+        XCTAssertEqual(state.runtimeInstalledProgramsByNodeID[nodeID], [.commandPrompt])
+        XCTAssertEqual(state.lastRuntimeEvent?.code, .runtimeProgramInstalled)
+        XCTAssertNil(state.lastRuntimeFault)
+    }
+
     func testSaveRuntimeDeviceIPRejectsInvalidSubnetMaskWithoutMutatingPriorConfig() {
         var state = TopologyEditorState()
         let nodeID = addNode(kind: .pc, at: CGPoint(x: 10, y: 10), to: &state)

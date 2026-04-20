@@ -308,7 +308,7 @@ enum TopologyEditorReducer {
                 return
             }
 
-            guard state.graph.containsNode(id: nodeID) else {
+            guard let node = state.graph.node(withID: nodeID) else {
                 state.lastValidationError = .nodeNotFound
                 state.lastRuntimeFault = TopologyRuntimeFault(
                     category: .networkConfiguration,
@@ -316,6 +316,16 @@ enum TopologyEditorReducer {
                     message: "Cannot save IP for unknown node \(nodeID.uuidString)"
                 )
                 recordRuntimeEvent(state: &state, code: .runtimeDeviceIPRejectedInvalidConfiguration, detail: "runtimeDeviceNotFound")
+                return
+            }
+
+            guard node.kind == .pc else {
+                state.lastRuntimeFault = TopologyRuntimeFault(
+                    category: .networkConfiguration,
+                    code: "ipConfigurationUnsupportedForNodeKind",
+                    message: "Only PCs can be configured with runtime IP addresses"
+                )
+                recordRuntimeEvent(state: &state, code: .runtimeDeviceIPRejectedInvalidConfiguration, detail: "ipConfigurationUnsupportedForNodeKind")
                 return
             }
 
@@ -349,6 +359,60 @@ enum TopologyEditorReducer {
                 state: &state,
                 code: .runtimeDeviceIPSaved,
                 detail: "node=\(nodeID.uuidString),ip=\(normalizedIPAddress),subnet=\(normalizedSubnetMask)"
+            )
+
+        case let .installRuntimeProgram(nodeID, program):
+            guard let nodeID else {
+                setMalformedRuntimePayload(
+                    state: &state,
+                    reason: "installRuntimeProgram requires nodeID"
+                )
+                return
+            }
+
+            guard let program else {
+                setMalformedRuntimePayload(
+                    state: &state,
+                    reason: "installRuntimeProgram requires program"
+                )
+                return
+            }
+
+            guard let node = state.graph.node(withID: nodeID) else {
+                state.lastValidationError = .nodeNotFound
+                state.lastRuntimeFault = TopologyRuntimeFault(
+                    category: .networkConfiguration,
+                    code: "runtimeDeviceNotFound",
+                    message: "Cannot install runtime program for unknown node \(nodeID.uuidString)"
+                )
+                recordRuntimeEvent(state: &state, code: .simulationFaultReported, detail: "runtimeDeviceNotFound")
+                return
+            }
+
+            guard node.kind == .pc else {
+                state.lastRuntimeFault = TopologyRuntimeFault(
+                    category: .commandValidation,
+                    code: "programInstallationUnsupportedForNodeKind",
+                    message: "Only PCs support desktop program installation"
+                )
+                recordRuntimeEvent(state: &state, code: .simulationFaultReported, detail: "programInstallationUnsupportedForNodeKind")
+                return
+            }
+
+            var installedPrograms = state.runtimeInstalledProgramsByNodeID[nodeID] ?? Set<TopologyRuntimeInstallableProgram>()
+            installedPrograms.insert(program)
+            state.runtimeInstalledProgramsByNodeID[nodeID] = installedPrograms
+            state.lastRuntimeFault = nil
+            advancePersistenceRevision(state: &state)
+            recordRuntimeEvent(
+                state: &state,
+                code: .runtimeProgramInstalled,
+                detail: "node=\(nodeID.uuidString),program=\(program.rawValue)"
+            )
+            appendConsoleLine(
+                state: &state,
+                nodeID: nodeID,
+                line: "Program installed: \(program.rawValue)"
             )
 
         case let .executePing(nodeID, command):
@@ -1595,6 +1659,8 @@ private extension TopologyEditorAction {
             return "closeRuntimeDevice"
         case .saveRuntimeDeviceIP:
             return "saveRuntimeDeviceIP"
+        case .installRuntimeProgram:
+            return "installRuntimeProgram"
         case .executePing:
             return "executePing"
         case .moveSelectedNodes:

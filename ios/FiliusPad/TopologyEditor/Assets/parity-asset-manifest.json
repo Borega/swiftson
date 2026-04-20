@@ -117,6 +117,48 @@
       "target": "allgemein/markierung.png",
       "required": false,
       "notes": "Selection accent candidate"
+    },
+    {
+      "id": "desktop.background",
+      "source": "gfx/desktop/hintergrundbild.png",
+      "target": "desktop/hintergrundbild.png",
+      "required": false,
+      "notes": "Java desktop wallpaper for runtime PC view"
+    },
+    {
+      "id": "desktop.icon.installation",
+      "source": "gfx/desktop/icon_softwareinstallation.png",
+      "target": "desktop/icon_softwareinstallation.png",
+      "required": false,
+      "notes": "Software installation icon"
+    },
+    {
+      "id": "desktop.icon.terminal",
+      "source": "gfx/desktop/icon_terminal.png",
+      "target": "desktop/icon_terminal.png",
+      "required": false,
+      "notes": "Terminal app icon"
+    },
+    {
+      "id": "desktop.icon.webserver",
+      "source": "gfx/desktop/icon_webserver.png",
+      "target": "desktop/icon_webserver.png",
+      "required": false,
+      "notes": "Web server app icon"
+    },
+    {
+      "id": "desktop.icon.dns",
+      "source": "gfx/desktop/icon_dns.png",
+      "target": "desktop/icon_dns.png",
+      "required": false,
+      "notes": "DNS app icon"
+    },
+    {
+      "id": "desktop.icon.serverbaustein",
+      "source": "gfx/desktop/icon_serverbaustein.png",
+      "target": "desktop/icon_serverbaustein.png",
+      "required": false,
+      "notes": "Generic server building-block icon"
     }
   ]
 }

@@ -29,6 +29,7 @@ struct TopologyProjectPersistenceError: Error, Equatable {
 
 enum TopologyFLSCompatibilityErrorCode: String, Equatable {
     case malformedConfigurationXML
+    case unsupportedConfigurationStructure
 }
 
 struct TopologyFLSCompatibilityError: Error, Equatable {
@@ -354,6 +355,8 @@ private final class TopologyFLSConfigurationParser: NSObject, XMLParserDelegate 
     private var rectangleSetDepth = 0
 
     private var filiusVersion: String?
+    private var sawXMLDecoderRoot = false
+    private var sawNodeListContainer = false
 
     init(data: Data) {
         self.data = data
@@ -371,6 +374,20 @@ private final class TopologyFLSConfigurationParser: NSObject, XMLParserDelegate 
             )
         }
 
+        guard sawXMLDecoderRoot else {
+            throw TopologyFLSCompatibilityError(
+                code: .unsupportedConfigurationStructure,
+                detail: "Unsupported configuration root: expected <java class=\"java.beans.XMLDecoder\">"
+            )
+        }
+
+        guard sawNodeListContainer else {
+            throw TopologyFLSCompatibilityError(
+                code: .unsupportedConfigurationStructure,
+                detail: "Unsupported configuration payload: expected node container <object class=\"java.util.LinkedList\">"
+            )
+        }
+
         return TopologyFLSConfigurationParseResult(
             filiusVersion: filiusVersion,
             nodes: nodes,
@@ -383,9 +400,17 @@ private final class TopologyFLSConfigurationParser: NSObject, XMLParserDelegate 
         currentTextBuffer = ""
 
         switch elementName {
+        case "java":
+            if attributeDict["class"] == "java.beans.XMLDecoder" {
+                sawXMLDecoderRoot = true
+            }
+
         case "object":
             let objectClass = attributeDict["class"]
             objectClassStack.append(objectClass)
+            if objectClass == "java.util.LinkedList" {
+                sawNodeListContainer = true
+            }
             if objectClass == "filius.gui.netzwerksicht.GUIKnotenItem" {
                 currentNode = NodeCandidate()
             }
@@ -498,10 +523,16 @@ private final class TopologyFLSConfigurationParser: NSObject, XMLParserDelegate 
         currentNode = nil
 
         guard let typeName = candidate.typeName,
-              let nodeKind = mapLegacyNodeType(typeName)
+              !typeName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         else {
             skippedNodeCount += 1
-            warnings.append("Skipped unsupported FILIUS node type in konfiguration.xml")
+            warnings.append("Skipped FILIUS node with missing type label in konfiguration.xml")
+            return
+        }
+
+        guard let nodeKind = mapLegacyNodeType(typeName) else {
+            skippedNodeCount += 1
+            warnings.append("Skipped unsupported FILIUS node type '\(typeName)' in konfiguration.xml")
             return
         }
 

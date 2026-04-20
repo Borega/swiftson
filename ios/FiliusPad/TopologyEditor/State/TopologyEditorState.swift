@@ -30,6 +30,7 @@ enum TopologyRuntimeEventCode: String, Equatable {
     case runtimeDeviceCloseIgnoredAlreadyClosed
     case runtimeDeviceClosed
     case runtimeDeviceIPSaved
+    case runtimeProgramInstalled
     case runtimeDeviceIPRejectedInvalidConfiguration
     case pingSucceeded
     case pingRejectedSimulationStopped
@@ -92,6 +93,14 @@ struct TopologyRuntimeDNSRecord: Equatable {
     let targetIPAddress: String
 }
 
+enum TopologyRuntimeInstallableProgram: String, CaseIterable, Codable, Equatable, Hashable {
+    case commandPrompt
+    case webServer
+    case echoServer
+    case dnsServer
+    case dhcpServer
+}
+
 struct TopologyPersistenceFailure: Equatable {
     let operation: TopologyProjectPersistenceOperation
     let code: TopologyProjectPersistenceErrorCode
@@ -112,6 +121,7 @@ struct TopologyEditorState: Equatable {
     var runtimeDeviceConfigurations: [UUID: TopologyRuntimeDeviceConfiguration] = [:]
     var runtimeDHCPLeaseByNodeID: [UUID: TopologyRuntimeDeviceConfiguration] = [:]
     var runtimeDNSRecordsByHostname: [String: TopologyRuntimeDNSRecord] = [:]
+    var runtimeInstalledProgramsByNodeID: [UUID: Set<TopologyRuntimeInstallableProgram>] = [:]
     var runtimeConsoleEntriesByNodeID: [UUID: [String]] = [:]
     var lastPingEvent: TopologyRuntimeEvent?
     var lastPingFault: TopologyRuntimeFault?
@@ -195,6 +205,7 @@ enum TopologyEditorAction: Equatable {
     case openRuntimeDevice(nodeID: UUID?)
     case closeRuntimeDevice
     case saveRuntimeDeviceIP(nodeID: UUID?, ipAddress: String?, subnetMask: String?)
+    case installRuntimeProgram(nodeID: UUID?, program: TopologyRuntimeInstallableProgram?)
     case executePing(nodeID: UUID?, command: String?)
     case moveSelectedNodes(delta: CGSize?)
     case panCanvas(delta: CGSize?)
