@@ -354,6 +354,7 @@ private final class TopologyFLSConfigurationParser: NSObject, XMLParserDelegate 
     private var rectangleFieldNameStack: [String?] = []
     private var rectangleGetFieldDepth = 0
     private var rectangleSetDepth = 0
+    private var directBoundsIntIndexStack: [Int] = []
 
     private var filiusVersion: String?
     private var sawXMLDecoderRoot = false
@@ -414,6 +415,11 @@ private final class TopologyFLSConfigurationParser: NSObject, XMLParserDelegate 
             }
             if objectClass == "filius.gui.netzwerksicht.GUIKnotenItem" {
                 currentNode = NodeCandidate()
+            } else if currentNode != nil,
+                      objectClass == "java.awt.Rectangle",
+                      propertyStack.contains("bounds")
+            {
+                directBoundsIntIndexStack.append(0)
             } else if currentNode != nil,
                       propertyStack.last == "knoten",
                       let objectClass,
@@ -496,6 +502,21 @@ private final class TopologyFLSConfigurationParser: NSObject, XMLParserDelegate 
                 } else if fieldName == "y" {
                     currentNode?.y = number
                 }
+            } else if currentNode != nil,
+                      propertyStack.contains("bounds"),
+                      let number = Int(value),
+                      !directBoundsIntIndexStack.isEmpty
+            {
+                let lastIndex = directBoundsIntIndexStack.count - 1
+                let componentIndex = directBoundsIntIndexStack[lastIndex]
+
+                if componentIndex == 0 {
+                    currentNode?.x = number
+                } else if componentIndex == 1 {
+                    currentNode?.y = number
+                }
+
+                directBoundsIntIndexStack[lastIndex] = componentIndex + 1
             }
 
         case "void":
@@ -518,6 +539,9 @@ private final class TopologyFLSConfigurationParser: NSObject, XMLParserDelegate 
 
         case "object":
             let closedClass = objectClassStack.popLast() ?? nil
+            if closedClass == "java.awt.Rectangle", !directBoundsIntIndexStack.isEmpty {
+                _ = directBoundsIntIndexStack.popLast()
+            }
             if closedClass == "filius.gui.netzwerksicht.GUIKnotenItem" {
                 finalizeCurrentNodeCandidate()
             }
