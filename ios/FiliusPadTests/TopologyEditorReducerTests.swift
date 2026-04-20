@@ -690,6 +690,145 @@ final class TopologyEditorReducerTests: XCTestCase {
         XCTAssertTrue(state.runtimeConsoleEntriesByNodeID[sourceNodeID]?.last?.contains("dnsUnknownHost") ?? false)
     }
 
+    func testExecuteDHCPReleaseClearsRuntimeConfigurationAndEmitsDiagnostics() {
+        var state = TopologyEditorState()
+        let sourceNodeID = addNode(kind: .pc, at: CGPoint(x: 30, y: 30), to: &state)
+
+        TopologyEditorReducer.reduce(state: &state, action: .startSimulation)
+        TopologyEditorReducer.reduce(
+            state: &state,
+            action: .executePing(nodeID: sourceNodeID, command: "dhcp lease 10.2.0.10 255.255.255.0")
+        )
+        TopologyEditorReducer.reduce(
+            state: &state,
+            action: .executePing(nodeID: sourceNodeID, command: "dhcp release")
+        )
+
+        XCTAssertNil(state.runtimeDHCPLeaseByNodeID[sourceNodeID])
+        XCTAssertNil(state.runtimeDeviceConfigurations[sourceNodeID])
+        XCTAssertEqual(state.lastRuntimeEvent?.code, .dhcpLeaseReleased)
+        XCTAssertNil(state.lastRuntimeFault)
+        XCTAssertEqual(state.runtimeConsoleEntriesByNodeID[sourceNodeID]?.last, "DHCP lease released")
+    }
+
+    func testExecuteDHCPReleaseRejectedWhenLeaseIsMissing() {
+        var state = TopologyEditorState()
+        let sourceNodeID = addNode(kind: .pc, at: CGPoint(x: 30, y: 30), to: &state)
+
+        TopologyEditorReducer.reduce(state: &state, action: .startSimulation)
+        TopologyEditorReducer.reduce(
+            state: &state,
+            action: .executePing(nodeID: sourceNodeID, command: "dhcp release")
+        )
+
+        XCTAssertEqual(state.lastRuntimeEvent?.code, .dhcpLeaseRejectedMissingLease)
+        XCTAssertEqual(state.lastRuntimeFault?.category, .networkService)
+        XCTAssertEqual(state.lastRuntimeFault?.code, "dhcpLeaseMissing")
+    }
+
+    func testExecuteDNSRemoveCommandDeletesRecordAndEmitsDiagnostics() {
+        var state = TopologyEditorState()
+        let sourceNodeID = addNode(kind: .pc, at: CGPoint(x: 30, y: 30), to: &state)
+
+        TopologyEditorReducer.reduce(state: &state, action: .startSimulation)
+        TopologyEditorReducer.reduce(
+            state: &state,
+            action: .executePing(nodeID: sourceNodeID, command: "dns add classroom.local 10.2.0.44")
+        )
+        TopologyEditorReducer.reduce(
+            state: &state,
+            action: .executePing(nodeID: sourceNodeID, command: "dns remove classroom.local")
+        )
+
+        XCTAssertNil(state.runtimeDNSRecordsByHostname["classroom.local"])
+        XCTAssertEqual(state.lastRuntimeEvent?.code, .dnsRecordRemoved)
+        XCTAssertNil(state.lastRuntimeFault)
+        XCTAssertEqual(state.runtimeConsoleEntriesByNodeID[sourceNodeID]?.last, "DNS record removed: classroom.local")
+    }
+
+    func testExecuteDNSRemoveUnknownHostUsesAttributableFault() {
+        var state = TopologyEditorState()
+        let sourceNodeID = addNode(kind: .pc, at: CGPoint(x: 30, y: 30), to: &state)
+
+        TopologyEditorReducer.reduce(state: &state, action: .startSimulation)
+        TopologyEditorReducer.reduce(
+            state: &state,
+            action: .executePing(nodeID: sourceNodeID, command: "dns remove missing.local")
+        )
+
+        XCTAssertEqual(state.lastRuntimeEvent?.code, .dnsRecordRejectedUnknownHost)
+        XCTAssertEqual(state.lastRuntimeFault?.category, .networkService)
+        XCTAssertEqual(state.lastRuntimeFault?.code, "dnsUnknownHost")
+    }
+
+    func testExecutePingAndTraceResolveHostnameTargetsViaDNSRecords() {
+        var state = TopologyEditorState()
+
+        let sourceNodeID = addNode(kind: .pc, at: CGPoint(x: 30, y: 30), to: &state)
+        let targetNodeID = addNode(kind: .pc, at: CGPoint(x: 280, y: 30), to: &state)
+        let switchNodeID = addNode(kind: .networkSwitch, at: CGPoint(x: 150, y: 100), to: &state)
+        connect(sourceNodeID, switchNodeID, state: &state)
+        connect(targetNodeID, switchNodeID, state: &state)
+
+        saveRuntimeIP(nodeID: sourceNodeID, ipAddress: "192.168.0.10", subnetMask: "255.255.255.0", state: &state)
+        saveRuntimeIP(nodeID: targetNodeID, ipAddress: "192.168.0.20", subnetMask: "255.255.255.0", state: &state)
+
+        TopologyEditorReducer.reduce(state: &state, action: .startSimulation)
+        TopologyEditorReducer.reduce(
+            state: &state,
+            action: .executePing(nodeID: sourceNodeID, command: "dns add host-a.local 192.168.0.20")
+        )
+
+        TopologyEditorReducer.reduce(
+            state: &state,
+            action: .executePing(nodeID: sourceNodeID, command: "ping host-a.local")
+        )
+
+        XCTAssertEqual(state.lastRuntimeEvent?.code, .pingSucceeded)
+        XCTAssertTrue(state.lastRuntimeEvent?.detail?.contains("targetHost=host-a.local") ?? false)
+
+        TopologyEditorReducer.reduce(
+            state: &state,
+            action: .executePing(nodeID: sourceNodeID, command: "trace host-a.local")
+        )
+
+        XCTAssertEqual(state.lastRuntimeEvent?.code, .traceSucceeded)
+        XCTAssertTrue(state.lastRuntimeEvent?.detail?.contains("targetHost=host-a.local") ?? false)
+        XCTAssertNil(state.lastRuntimeFault)
+    }
+
+    func testExecutePingHostnameUnknownHostUsesServiceFault() {
+        var state = TopologyEditorState()
+        let sourceNodeID = addNode(kind: .pc, at: CGPoint(x: 30, y: 30), to: &state)
+        saveRuntimeIP(nodeID: sourceNodeID, ipAddress: "192.168.0.10", subnetMask: "255.255.255.0", state: &state)
+
+        TopologyEditorReducer.reduce(state: &state, action: .startSimulation)
+        TopologyEditorReducer.reduce(
+            state: &state,
+            action: .executePing(nodeID: sourceNodeID, command: "ping missing.local")
+        )
+
+        XCTAssertEqual(state.lastRuntimeEvent?.code, .pingRejectedUnknownTarget)
+        XCTAssertEqual(state.lastRuntimeFault?.category, .networkService)
+        XCTAssertEqual(state.lastRuntimeFault?.code, "dnsUnknownHost")
+    }
+
+    func testExecuteTraceHostnameUnknownHostUsesServiceFault() {
+        var state = TopologyEditorState()
+        let sourceNodeID = addNode(kind: .pc, at: CGPoint(x: 30, y: 30), to: &state)
+        saveRuntimeIP(nodeID: sourceNodeID, ipAddress: "192.168.0.10", subnetMask: "255.255.255.0", state: &state)
+
+        TopologyEditorReducer.reduce(state: &state, action: .startSimulation)
+        TopologyEditorReducer.reduce(
+            state: &state,
+            action: .executePing(nodeID: sourceNodeID, command: "trace missing.local")
+        )
+
+        XCTAssertEqual(state.lastRuntimeEvent?.code, .traceRejectedUnknownTarget)
+        XCTAssertEqual(state.lastRuntimeFault?.category, .networkService)
+        XCTAssertEqual(state.lastRuntimeFault?.code, "dnsUnknownHost")
+    }
+
     func testExecuteTraceTwentyNodeRuntimeDepthContractIsDeterministic() {
         let phaseTag = "[M002/S03/T03 tests]"
         var state = TopologyEditorState()

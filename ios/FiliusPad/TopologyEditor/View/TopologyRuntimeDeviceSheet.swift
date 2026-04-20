@@ -114,13 +114,13 @@ struct TopologyRuntimeDeviceSheet: View {
             Text("Command")
                 .font(.subheadline.weight(.semibold))
 
-            TextField("ping|trace <target-ipv4>", text: $command)
+            TextField("ping|trace <target-ipv4> or <hostname>", text: $command)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .textFieldStyle(.roundedBorder)
                 .accessibilityIdentifier("runtime.device.command")
 
-            Text("Supported: ping <target-ipv4>, trace <target-ipv4>, dhcp lease <ipv4> <subnet-mask>, dns add <hostname> <target-ipv4>, dns resolve <hostname>")
+            Text("Supported: ping <target-ipv4|hostname>, trace <target-ipv4|hostname>, dhcp lease <ipv4> <subnet-mask>, dhcp release, dns add <hostname> <target-ipv4>, dns remove <hostname>, dns resolve <hostname>")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .accessibilityIdentifier("runtime.device.command.help")

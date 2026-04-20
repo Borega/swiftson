@@ -46,12 +46,16 @@ enum TopologyRuntimeEventCode: String, Equatable {
     case traceRejectedTopologyUnreachable
     case traceRejectedSubnetMismatch
     case dhcpLeaseAssigned
+    case dhcpLeaseReleased
     case dhcpLeaseRejectedSimulationStopped
     case dhcpLeaseRejectedMalformedCommand
     case dhcpLeaseRejectedInvalidConfiguration
+    case dhcpLeaseRejectedMissingLease
     case dnsRecordRegistered
+    case dnsRecordRemoved
     case dnsRecordRejectedMalformedCommand
     case dnsRecordRejectedSimulationStopped
+    case dnsRecordRejectedUnknownHost
     case dnsResolveSucceeded
     case dnsResolveRejectedUnknownHost
     case dnsResolveRejectedSimulationStopped
