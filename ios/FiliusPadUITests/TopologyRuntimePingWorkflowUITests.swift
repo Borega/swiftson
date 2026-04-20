@@ -30,6 +30,7 @@ final class TopologyRuntimePingWorkflowUITests: XCTestCase {
         openRuntimeDevice(at: CGVector(dx: 0.25, dy: 0.30))
         executeCommand("ping 192.168.10.11")
 
+        waitForDiagnosticContains("debug.lastPingEvent", expectedSubstring: "pingSucceeded", timeout: 3)
         assertDiagnosticContains("debug.lastPingEvent", expectedSubstring: "pingSucceeded")
         assertDiagnosticContains("debug.lastPingFault", expectedSubstring: "none")
         assertAnyConsoleLineContains("Ping to 192.168.10.11 succeeded")
@@ -68,6 +69,7 @@ final class TopologyRuntimePingWorkflowUITests: XCTestCase {
         openRuntimeDevice(at: CGVector(dx: 0.25, dy: 0.30))
         executeCommand("trace 192.168.10.11")
 
+        waitForDiagnosticContains("debug.lastRuntimeEvent", expectedSubstring: "traceSucceeded", timeout: 3)
         assertDiagnosticContains("debug.lastRuntimeEvent", expectedSubstring: "traceSucceeded")
         assertDiagnosticContains("debug.lastRuntimeRoute", expectedSubstring: "command=trace")
         assertDiagnosticContains("debug.lastRuntimeRoute", expectedSubstring: "targetIP=192.168.10.11")
@@ -211,20 +213,7 @@ final class TopologyRuntimePingWorkflowUITests: XCTestCase {
         )
 
         let canvas = canvasSurfaceElement(timeout: 8)
-        let frame = canvas.frame
-        if frame.width.isFinite,
-           frame.height.isFinite,
-           frame.minX.isFinite,
-           frame.minY.isFinite,
-           frame.width > 1,
-           frame.height > 1 {
-            canvas.coordinate(withNormalizedOffset: clampedOffset).tap()
-            return
-        }
-
-        let window = app.windows.firstMatch
-        XCTAssertTrue(window.waitForExistence(timeout: 8), "Missing app window for canvas interaction")
-        window.coordinate(withNormalizedOffset: clampedOffset).tap()
+        canvas.coordinate(withNormalizedOffset: clampedOffset).tap()
     }
 
     private func openRuntimeDevice(at normalizedOffset: CGVector) {
@@ -339,26 +328,43 @@ final class TopologyRuntimePingWorkflowUITests: XCTestCase {
         tapButton("palette.tool.place.switch")
         tapCanvas(at: CGVector(dx: 0.48, dy: 0.62))
 
+        waitForDiagnosticContains("debug.nodeCount", expectedSubstring: "Nodes: 3", timeout: 3)
+
         connectNodesWithRetry(
             from: CGVector(dx: 0.25, dy: 0.30),
             to: CGVector(dx: 0.48, dy: 0.62),
-            attempts: 2
+            expectedLinkCount: 1,
+            attempts: 5
         )
 
         connectNodesWithRetry(
             from: CGVector(dx: 0.70, dy: 0.30),
             to: CGVector(dx: 0.48, dy: 0.62),
-            attempts: 2
+            expectedLinkCount: 2,
+            attempts: 5
         )
+
+        waitForDiagnosticContains("debug.linkCount", expectedSubstring: "Links: 2", timeout: 3)
     }
 
-    private func connectNodesWithRetry(from source: CGVector, to destination: CGVector, attempts: Int) {
+    private func connectNodesWithRetry(
+        from source: CGVector,
+        to destination: CGVector,
+        expectedLinkCount: Int,
+        attempts: Int
+    ) {
         for _ in 0..<max(attempts, 1) {
             tapButton("palette.tool.select")
             tapButton("palette.tool.connect")
             tapCanvas(at: source)
             tapCanvas(at: destination)
-            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+            RunLoop.current.run(until: Date().addingTimeInterval(0.15))
+
+            if label(for: "debug.linkCount").contains("Links: \(expectedLinkCount)") {
+                return
+            }
         }
+
+        XCTFail("Expected deterministic seed to produce Links: \(expectedLinkCount)")
     }
 }
