@@ -103,11 +103,11 @@ final class TopologyRuntimePingWorkflowUITests: XCTestCase {
         }
 
         XCTFail("Missing required accessibility identifier '\(identifier)'")
-        return app.buttons[identifier]
+        return app.descendants(matching: .any)[identifier]
     }
 
     private func locateControl(_ identifier: String, timeout: TimeInterval) -> XCUIElement? {
-        let direct = app.buttons[identifier]
+        let direct = app.descendants(matching: .any)[identifier]
         if direct.waitForExistence(timeout: timeout) {
             return direct
         }
@@ -213,7 +213,45 @@ final class TopologyRuntimePingWorkflowUITests: XCTestCase {
         )
 
         let canvas = canvasSurfaceElement(timeout: 8)
-        canvas.coordinate(withNormalizedOffset: clampedOffset).tap()
+        guard let frame = waitForFiniteCanvasFrame(canvas, timeout: 3) else {
+            XCTFail("Canvas frame never became finite before tap")
+            return
+        }
+
+        let target = CGVector(
+            dx: frame.minX + (frame.width * clampedOffset.dx),
+            dy: frame.minY + (frame.height * clampedOffset.dy)
+        )
+
+        guard target.dx.isFinite, target.dy.isFinite else {
+            XCTFail("Canvas tap resolved to non-finite screen target: \(target)")
+            return
+        }
+
+        app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(target)
+            .tap()
+    }
+
+    private func waitForFiniteCanvasFrame(_ canvas: XCUIElement, timeout: TimeInterval) -> CGRect? {
+        let deadline = Date().addingTimeInterval(timeout)
+
+        while Date() < deadline {
+            let frame = canvas.frame
+            if frame.minX.isFinite,
+               frame.minY.isFinite,
+               frame.width.isFinite,
+               frame.height.isFinite,
+               frame.width > 1,
+               frame.height > 1,
+               canvas.isHittable {
+                return frame
+            }
+
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+
+        return nil
     }
 
     private func openRuntimeDevice(at normalizedOffset: CGVector) {
