@@ -351,8 +351,7 @@ final class TopologyProjectPersistenceTests: XCTestCase {
         XCTAssertEqual(result.report.filiusVersion, "Filius version: 2.1.0 (11.10.2022)")
         XCTAssertEqual(result.report.importedNodeCount, 2)
         XCTAssertEqual(result.report.skippedNodeCount, 1)
-        XCTAssertTrue(result.report.warnings.contains(where: { $0.contains("Skipped unsupported FILIUS node type") }))
-        XCTAssertTrue(result.report.warnings.contains(where: { $0.contains("Router") }))
+        XCTAssertEqual(result.report.warnings, ["Skipped unsupported FILIUS node type 'Router' in konfiguration.xml"])
 
         XCTAssertEqual(result.state.graph.nodes.count, 2)
         XCTAssertEqual(result.state.graph.nodes[0].kind, .pc)
@@ -370,7 +369,7 @@ final class TopologyProjectPersistenceTests: XCTestCase {
             }
 
             XCTAssertEqual(compatibilityError.code, .malformedConfigurationXML)
-            XCTAssertFalse(compatibilityError.detail.isEmpty)
+            XCTAssertTrue(compatibilityError.detail.contains("Failed to parse konfiguration.xml"))
         }
     }
 
@@ -397,8 +396,8 @@ final class TopologyProjectPersistenceTests: XCTestCase {
         var state = TopologyEditorState()
         state.graph = TopologyGraph(
             nodes: [
-                TopologyNode(id: uuid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"), kind: .pc, position: CGPoint(x: 32, y: 64)),
-                TopologyNode(id: uuid("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"), kind: .networkSwitch, position: CGPoint(x: 120, y: 240))
+                TopologyNode(id: uuid("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"), kind: .networkSwitch, position: CGPoint(x: 120, y: 240)),
+                TopologyNode(id: uuid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"), kind: .pc, position: CGPoint(x: 32, y: 64))
             ],
             links: []
         )
@@ -415,6 +414,7 @@ final class TopologyProjectPersistenceTests: XCTestCase {
         XCTAssertEqual(imported.state.graph.nodes.map(\.kind), [.pc, .networkSwitch])
         XCTAssertEqual(imported.state.graph.nodes.map(\.position), [CGPoint(x: 32, y: 64), CGPoint(x: 120, y: 240)])
         XCTAssertEqual(imported.report.skippedNodeCount, 0)
+        XCTAssertEqual(imported.report.warnings, [])
     }
 
     // MARK: - Helpers
