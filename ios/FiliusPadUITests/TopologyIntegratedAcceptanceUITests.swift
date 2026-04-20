@@ -658,32 +658,38 @@ final class TopologyIntegratedAcceptanceUITests: XCTestCase {
         let window = app.windows.element(boundBy: 0)
 
         while Date() < deadline {
-            _ = toolbar.waitForExistence(timeout: 0.2)
-            _ = debugOverlay.waitForExistence(timeout: 0.2)
-
             let windowFrame = window.frame
-            let toolbarFrame = toolbar.frame
-            let overlayFrame = debugOverlay.frame
-
             let windowFinite = windowFrame.minX.isFinite &&
                 windowFrame.minY.isFinite &&
                 windowFrame.width.isFinite &&
                 windowFrame.height.isFinite &&
-                windowFrame.width > 50 &&
-                windowFrame.height > 50
+                windowFrame.width > 200 &&
+                windowFrame.height > 200
 
-            let toolbarFinite = toolbarFrame.minX.isFinite &&
-                toolbarFrame.maxX.isFinite &&
-                toolbarFrame.maxY.isFinite
+            if windowFinite {
+                var minX = windowFrame.minX + 16
+                var maxX = windowFrame.maxX - 16
+                var minY = windowFrame.minY + (windowFrame.height * 0.20)
+                var maxY = windowFrame.maxY - (windowFrame.height * 0.20)
 
-            let overlayFinite = overlayFrame.minY.isFinite
+                if toolbar.exists {
+                    let toolbarFrame = toolbar.frame
+                    let toolbarFinite = toolbarFrame.minX.isFinite &&
+                        toolbarFrame.maxX.isFinite &&
+                        toolbarFrame.maxY.isFinite
+                    if toolbarFinite {
+                        minX = max(minX, toolbarFrame.minX)
+                        maxX = min(maxX, toolbarFrame.maxX)
+                        minY = max(minY, toolbarFrame.maxY + 12)
+                    }
+                }
 
-            if windowFinite && toolbarFinite {
-                let minX = max(windowFrame.minX + 16, toolbarFrame.minX)
-                let maxX = min(windowFrame.maxX - 16, toolbarFrame.maxX)
-
-                let minY = toolbarFrame.maxY + 12
-                let maxY = overlayFinite ? (overlayFrame.minY - 12) : (windowFrame.maxY - 140)
+                if debugOverlay.exists {
+                    let overlayFrame = debugOverlay.frame
+                    if overlayFrame.minY.isFinite {
+                        maxY = min(maxY, overlayFrame.minY - 12)
+                    }
+                }
 
                 if maxX > minX + 40, maxY > minY + 40 {
                     return CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
