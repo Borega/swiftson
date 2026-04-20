@@ -107,14 +107,25 @@ final class TopologyEditorTouchFlowUITests: XCTestCase {
     @discardableResult
     private func requireControl(_ identifier: String, timeout: TimeInterval = 5) -> XCUIElement {
         let identified = app.descendants(matching: .any)[identifier]
-        if identified.waitForExistence(timeout: timeout) {
+        let directTimeout = min(timeout, 2)
+        if identified.waitForExistence(timeout: directTimeout) {
             return identified
         }
 
         if let fallbackLabel = fallbackLabel(for: identifier) {
-            let fallbackButton = app.buttons[fallbackLabel]
-            if fallbackButton.waitForExistence(timeout: 2) {
-                return fallbackButton
+            let scopedPredicate = NSPredicate(
+                format: "label == %@ AND identifier != %@",
+                fallbackLabel,
+                "palette.toolbar.content"
+            )
+            let scopedFallback = app.buttons.matching(scopedPredicate).firstMatch
+            if scopedFallback.waitForExistence(timeout: 2) {
+                return scopedFallback
+            }
+
+            let broadFallback = app.buttons.matching(NSPredicate(format: "label == %@", fallbackLabel)).firstMatch
+            if broadFallback.waitForExistence(timeout: 1) {
+                return broadFallback
             }
         }
 
