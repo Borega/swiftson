@@ -303,6 +303,100 @@ final class TopologyProjectPersistenceTests: XCTestCase {
         }
     }
 
+    func testImportFiliusConfigurationXMLMapsSupportedNodeTypesAndReportsSkippedEntries() throws {
+        let xml = """
+        <?xml version=\"1.0\" encoding=\"UTF-8\"?>
+        <java version=\"11.0.17\" class=\"java.beans.XMLDecoder\">
+         <string>Filius version: 2.1.0 (11.10.2022)</string>
+         <object class=\"java.util.LinkedList\">
+          <void method=\"add\">
+           <object class=\"filius.gui.netzwerksicht.GUIKnotenItem\">
+            <void property=\"typ\"><string>Computer</string></void>
+            <void property=\"bounds\">
+             <object class=\"java.awt.Rectangle\">
+              <void class=\"java.awt.Rectangle\" method=\"getField\"><string>x</string><void method=\"set\"><int>10</int></void></void>
+              <void class=\"java.awt.Rectangle\" method=\"getField\"><string>y</string><void method=\"set\"><int>20</int></void></void>
+             </object>
+            </void>
+           </object>
+          </void>
+          <void method=\"add\">
+           <object class=\"filius.gui.netzwerksicht.GUIKnotenItem\">
+            <void property=\"typ\"><string>Switch</string></void>
+            <void property=\"bounds\">
+             <object class=\"java.awt.Rectangle\">
+              <void class=\"java.awt.Rectangle\" method=\"getField\"><string>x</string><void method=\"set\"><int>100</int></void></void>
+              <void class=\"java.awt.Rectangle\" method=\"getField\"><string>y</string><void method=\"set\"><int>200</int></void></void>
+             </object>
+            </void>
+           </object>
+          </void>
+          <void method=\"add\">
+           <object class=\"filius.gui.netzwerksicht.GUIKnotenItem\">
+            <void property=\"typ\"><string>Router</string></void>
+            <void property=\"bounds\">
+             <object class=\"java.awt.Rectangle\">
+              <void class=\"java.awt.Rectangle\" method=\"getField\"><string>x</string><void method=\"set\"><int>300</int></void></void>
+              <void class=\"java.awt.Rectangle\" method=\"getField\"><string>y</string><void method=\"set\"><int>400</int></void></void>
+             </object>
+            </void>
+           </object>
+          </void>
+         </object>
+        </java>
+        """
+
+        let result = try TopologyProjectStore.importFiliusConfigurationXML(Data(xml.utf8))
+
+        XCTAssertEqual(result.report.filiusVersion, "Filius version: 2.1.0 (11.10.2022)")
+        XCTAssertEqual(result.report.importedNodeCount, 2)
+        XCTAssertEqual(result.report.skippedNodeCount, 1)
+        XCTAssertFalse(result.report.warnings.isEmpty)
+
+        XCTAssertEqual(result.state.graph.nodes.count, 2)
+        XCTAssertEqual(result.state.graph.nodes[0].kind, .pc)
+        XCTAssertEqual(result.state.graph.nodes[0].position, CGPoint(x: 10, y: 20))
+        XCTAssertEqual(result.state.graph.nodes[1].kind, .networkSwitch)
+        XCTAssertEqual(result.state.graph.nodes[1].position, CGPoint(x: 100, y: 200))
+        XCTAssertTrue(result.state.graph.links.isEmpty)
+    }
+
+    func testImportFiliusConfigurationXMLRejectsMalformedPayload() {
+        XCTAssertThrowsError(try TopologyProjectStore.importFiliusConfigurationXML(Data("<java".utf8))) { error in
+            guard let compatibilityError = error as? TopologyFLSCompatibilityError else {
+                XCTFail("Expected TopologyFLSCompatibilityError, got \(type(of: error))")
+                return
+            }
+
+            XCTAssertEqual(compatibilityError.code, .malformedConfigurationXML)
+            XCTAssertFalse(compatibilityError.detail.isEmpty)
+        }
+    }
+
+    func testExportFiliusConfigurationXMLRoundTripsViaCompatibilityImport() throws {
+        var state = TopologyEditorState()
+        state.graph = TopologyGraph(
+            nodes: [
+                TopologyNode(id: uuid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"), kind: .pc, position: CGPoint(x: 32, y: 64)),
+                TopologyNode(id: uuid("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"), kind: .networkSwitch, position: CGPoint(x: 120, y: 240))
+            ],
+            links: []
+        )
+
+        let exported = TopologyProjectStore.exportFiliusConfigurationXML(
+            from: state,
+            filiusVersion: "Filius version: 2.1.0 (compat export)"
+        )
+
+        let imported = try TopologyProjectStore.importFiliusConfigurationXML(exported)
+
+        XCTAssertEqual(imported.report.filiusVersion, "Filius version: 2.1.0 (compat export)")
+        XCTAssertEqual(imported.state.graph.nodes.count, 2)
+        XCTAssertEqual(imported.state.graph.nodes.map(\.kind), [.pc, .networkSwitch])
+        XCTAssertEqual(imported.state.graph.nodes.map(\.position), [CGPoint(x: 32, y: 64), CGPoint(x: 120, y: 240)])
+        XCTAssertEqual(imported.report.skippedNodeCount, 0)
+    }
+
     // MARK: - Helpers
 
     private func writeJSON(_ object: [String: Any], to fileURL: URL) throws {
