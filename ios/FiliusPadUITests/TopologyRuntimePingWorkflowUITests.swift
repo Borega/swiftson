@@ -122,6 +122,8 @@ final class TopologyRuntimePingWorkflowUITests: XCTestCase {
 
     private func controlLabelFallback(for identifier: String) -> String? {
         switch identifier {
+        case "palette.tool.select":
+            return "Select"
         case "palette.tool.place.pc":
             return "PC"
         case "palette.tool.place.switch":
@@ -161,6 +163,10 @@ final class TopologyRuntimePingWorkflowUITests: XCTestCase {
 
     private func diagnosticPrefixFallback(for identifier: String) -> String? {
         switch identifier {
+        case "debug.nodeCount":
+            return "Nodes:"
+        case "debug.linkCount":
+            return "Links:"
         case "debug.simulationPhase":
             return "Simulation phase:"
         case "debug.lastRuntimeEvent":
@@ -276,6 +282,20 @@ final class TopologyRuntimePingWorkflowUITests: XCTestCase {
         return element.label
     }
 
+    private func waitForDiagnosticContains(_ identifier: String, expectedSubstring: String, timeout: TimeInterval) {
+        let deadline = Date().addingTimeInterval(timeout)
+
+        while Date() < deadline {
+            if label(for: identifier).contains(expectedSubstring) {
+                return
+            }
+
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+
+        XCTFail("Timed out waiting for \(identifier) to contain '\(expectedSubstring)'")
+    }
+
     private func waitForElementToDisappear(_ element: XCUIElement, timeout: TimeInterval, identifier: String) {
         let deadline = Date().addingTimeInterval(timeout)
 
@@ -312,18 +332,45 @@ final class TopologyRuntimePingWorkflowUITests: XCTestCase {
     private func seedReachableTwoPcTopology() {
         tapButton("palette.tool.place.pc")
         tapCanvas(at: CGVector(dx: 0.25, dy: 0.30))
+        waitForDiagnosticContains("debug.nodeCount", expectedSubstring: "Nodes: 1", timeout: 4)
 
         tapButton("palette.tool.place.pc")
         tapCanvas(at: CGVector(dx: 0.70, dy: 0.30))
+        waitForDiagnosticContains("debug.nodeCount", expectedSubstring: "Nodes: 2", timeout: 4)
 
         tapButton("palette.tool.place.switch")
         tapCanvas(at: CGVector(dx: 0.48, dy: 0.62))
+        waitForDiagnosticContains("debug.nodeCount", expectedSubstring: "Nodes: 3", timeout: 4)
 
-        tapButton("palette.tool.connect")
-        tapCanvas(at: CGVector(dx: 0.25, dy: 0.30))
-        tapCanvas(at: CGVector(dx: 0.48, dy: 0.62))
+        connectNodesWithRetry(
+            from: CGVector(dx: 0.25, dy: 0.30),
+            to: CGVector(dx: 0.48, dy: 0.62),
+            expectedLinks: 1
+        )
 
-        tapCanvas(at: CGVector(dx: 0.70, dy: 0.30))
-        tapCanvas(at: CGVector(dx: 0.48, dy: 0.62))
+        connectNodesWithRetry(
+            from: CGVector(dx: 0.70, dy: 0.30),
+            to: CGVector(dx: 0.48, dy: 0.62),
+            expectedLinks: 2
+        )
+    }
+
+    private func connectNodesWithRetry(from source: CGVector, to destination: CGVector, expectedLinks: Int) {
+        for attempt in 1...3 {
+            tapButton("palette.tool.select")
+            tapButton("palette.tool.connect")
+            tapCanvas(at: source)
+            tapCanvas(at: destination)
+
+            if label(for: "debug.linkCount").contains("Links: \(expectedLinks)") {
+                return
+            }
+
+            if attempt < 3 {
+                RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+            }
+        }
+
+        XCTFail("Failed to create link count \(expectedLinks) using source=\(source) destination=\(destination)")
     }
 }

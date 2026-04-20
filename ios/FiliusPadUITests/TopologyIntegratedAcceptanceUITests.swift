@@ -225,7 +225,7 @@ final class TopologyIntegratedAcceptanceUITests: XCTestCase {
         }
 
         let app = XCUIApplication()
-        app.launchArguments = additionalArguments
+        app.launchArguments += additionalArguments
         app.launchEnvironment["FILIUSPAD_AUTOSAVE_FILE"] = autosaveURL.path
         app.launch()
 
