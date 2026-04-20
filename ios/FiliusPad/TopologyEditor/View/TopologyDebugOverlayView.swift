@@ -45,6 +45,12 @@ struct TopologyDebugOverlayView: View {
             Text("Opened runtime console entries: \(openedRuntimeConsoleCount)")
                 .accessibilityIdentifier("debug.runtimeConsoleCount")
 
+            Text("DHCP leases: \(state.runtimeDHCPLeaseByNodeID.count)")
+                .accessibilityIdentifier("debug.runtimeDHCPLeaseCount")
+
+            Text("DNS records: \(state.runtimeDNSRecordsByHostname.count)")
+                .accessibilityIdentifier("debug.runtimeDNSRecordCount")
+
             Text(
                 String(
                     format: "Camera: x=%.1f y=%.1f",

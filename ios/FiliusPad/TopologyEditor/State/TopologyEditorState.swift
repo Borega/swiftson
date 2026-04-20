@@ -45,6 +45,16 @@ enum TopologyRuntimeEventCode: String, Equatable {
     case traceRejectedInvalidSourceConfiguration
     case traceRejectedTopologyUnreachable
     case traceRejectedSubnetMismatch
+    case dhcpLeaseAssigned
+    case dhcpLeaseRejectedSimulationStopped
+    case dhcpLeaseRejectedMalformedCommand
+    case dhcpLeaseRejectedInvalidConfiguration
+    case dnsRecordRegistered
+    case dnsRecordRejectedMalformedCommand
+    case dnsRecordRejectedSimulationStopped
+    case dnsResolveSucceeded
+    case dnsResolveRejectedUnknownHost
+    case dnsResolveRejectedSimulationStopped
     case runtimeCommandRejectedUnsupported
 }
 
@@ -59,6 +69,7 @@ enum TopologyRuntimeFaultCategory: String, Equatable {
     case commandValidation
     case networkConfiguration
     case networkRouting
+    case networkService
 }
 
 struct TopologyRuntimeFault: Equatable {
@@ -70,6 +81,11 @@ struct TopologyRuntimeFault: Equatable {
 struct TopologyRuntimeDeviceConfiguration: Equatable {
     let ipAddress: String
     let subnetMask: String
+}
+
+struct TopologyRuntimeDNSRecord: Equatable {
+    let hostname: String
+    let targetIPAddress: String
 }
 
 struct TopologyPersistenceFailure: Equatable {
@@ -90,6 +106,8 @@ struct TopologyEditorState: Equatable {
     var lastRuntimeFault: TopologyRuntimeFault?
     var openedRuntimeDeviceID: UUID?
     var runtimeDeviceConfigurations: [UUID: TopologyRuntimeDeviceConfiguration] = [:]
+    var runtimeDHCPLeaseByNodeID: [UUID: TopologyRuntimeDeviceConfiguration] = [:]
+    var runtimeDNSRecordsByHostname: [String: TopologyRuntimeDNSRecord] = [:]
     var runtimeConsoleEntriesByNodeID: [UUID: [String]] = [:]
     var lastPingEvent: TopologyRuntimeEvent?
     var lastPingFault: TopologyRuntimeFault?

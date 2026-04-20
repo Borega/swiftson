@@ -7,6 +7,9 @@ enum TopologyEditorReducer {
     private enum RuntimeCommand {
         case ping(String)
         case trace(String)
+        case dhcpLease(ipAddress: String, subnetMask: String)
+        case dnsRegister(hostname: String, targetIPAddress: String)
+        case dnsResolve(hostname: String)
     }
 
     private enum RuntimeCommandParseResult {
@@ -377,13 +380,14 @@ enum TopologyEditorReducer {
                     sourceNodeID: sourceNodeID,
                     eventCode: .runtimeCommandRejectedUnsupported,
                     faultCode: "unsupportedRuntimeCommand",
-                    message: "Unsupported runtime command '\(command)'. Supported commands are: ping, trace",
+                    message: "Unsupported runtime command '\(command)'. Supported commands are: ping, trace, dhcp lease, dns add, dns resolve",
                     detail: "unsupportedRuntimeCommand"
                 )
                 return
 
             case let .malformed(command, reason):
-                if command == "trace" {
+                switch command {
+                case "trace":
                     setTraceFailure(
                         state: &state,
                         sourceNodeID: sourceNodeID,
@@ -394,18 +398,43 @@ enum TopologyEditorReducer {
                         detail: "malformedTraceCommand"
                     )
                     return
-                }
 
-                setPingFailure(
-                    state: &state,
-                    sourceNodeID: sourceNodeID,
-                    eventCode: .pingRejectedMalformedCommand,
-                    faultCategory: .commandValidation,
-                    faultCode: "malformedPingCommand",
-                    message: reason,
-                    detail: "malformedPingCommand"
-                )
-                return
+                case "dhcp":
+                    setDHCPFailure(
+                        state: &state,
+                        sourceNodeID: sourceNodeID,
+                        eventCode: .dhcpLeaseRejectedMalformedCommand,
+                        faultCategory: .commandValidation,
+                        faultCode: "malformedDHCPCommand",
+                        message: reason,
+                        detail: "malformedDHCPCommand"
+                    )
+                    return
+
+                case "dns":
+                    setDNSFailure(
+                        state: &state,
+                        sourceNodeID: sourceNodeID,
+                        eventCode: .dnsRecordRejectedMalformedCommand,
+                        faultCategory: .commandValidation,
+                        faultCode: "malformedDNSCommand",
+                        message: reason,
+                        detail: "malformedDNSCommand"
+                    )
+                    return
+
+                default:
+                    setPingFailure(
+                        state: &state,
+                        sourceNodeID: sourceNodeID,
+                        eventCode: .pingRejectedMalformedCommand,
+                        faultCategory: .commandValidation,
+                        faultCode: "malformedPingCommand",
+                        message: reason,
+                        detail: "malformedPingCommand"
+                    )
+                    return
+                }
 
             case let .success(runtimeCommand):
                 switch runtimeCommand {
@@ -447,6 +476,68 @@ enum TopologyEditorReducer {
                         state: &state,
                         sourceNodeID: sourceNodeID,
                         targetIPAddress: targetIPAddress
+                    )
+
+                case let .dhcpLease(ipAddress, subnetMask):
+                    guard state.simulationPhase == .running else {
+                        setDHCPFailure(
+                            state: &state,
+                            sourceNodeID: sourceNodeID,
+                            eventCode: .dhcpLeaseRejectedSimulationStopped,
+                            faultCategory: .runtimeFault,
+                            faultCode: "dhcpWhileSimulationStopped",
+                            message: "DHCP lease commands require a running simulation",
+                            detail: "phase=\(state.simulationPhase.rawValue)"
+                        )
+                        return
+                    }
+
+                    executeDHCPLeaseCommand(
+                        state: &state,
+                        sourceNodeID: sourceNodeID,
+                        ipAddress: ipAddress,
+                        subnetMask: subnetMask
+                    )
+
+                case let .dnsRegister(hostname, targetIPAddress):
+                    guard state.simulationPhase == .running else {
+                        setDNSFailure(
+                            state: &state,
+                            sourceNodeID: sourceNodeID,
+                            eventCode: .dnsRecordRejectedSimulationStopped,
+                            faultCategory: .runtimeFault,
+                            faultCode: "dnsWhileSimulationStopped",
+                            message: "DNS commands require a running simulation",
+                            detail: "phase=\(state.simulationPhase.rawValue)"
+                        )
+                        return
+                    }
+
+                    executeDNSRegisterCommand(
+                        state: &state,
+                        sourceNodeID: sourceNodeID,
+                        hostname: hostname,
+                        targetIPAddress: targetIPAddress
+                    )
+
+                case let .dnsResolve(hostname):
+                    guard state.simulationPhase == .running else {
+                        setDNSFailure(
+                            state: &state,
+                            sourceNodeID: sourceNodeID,
+                            eventCode: .dnsResolveRejectedSimulationStopped,
+                            faultCategory: .runtimeFault,
+                            faultCode: "dnsWhileSimulationStopped",
+                            message: "DNS commands require a running simulation",
+                            detail: "phase=\(state.simulationPhase.rawValue)"
+                        )
+                        return
+                    }
+
+                    executeDNSResolveCommand(
+                        state: &state,
+                        sourceNodeID: sourceNodeID,
+                        hostname: hostname
                     )
                 }
             }
@@ -576,6 +667,44 @@ enum TopologyEditorReducer {
         state.lastRuntimeFault = fault
         recordRuntimeEvent(state: &state, code: eventCode, detail: detail)
         appendConsoleLine(state: &state, nodeID: sourceNodeID, line: "Trace failed: \(faultCode) — \(message)")
+    }
+
+    private static func setDHCPFailure(
+        state: inout TopologyEditorState,
+        sourceNodeID: UUID,
+        eventCode: TopologyRuntimeEventCode,
+        faultCategory: TopologyRuntimeFaultCategory,
+        faultCode: String,
+        message: String,
+        detail: String
+    ) {
+        let fault = TopologyRuntimeFault(
+            category: faultCategory,
+            code: faultCode,
+            message: message
+        )
+        state.lastRuntimeFault = fault
+        recordRuntimeEvent(state: &state, code: eventCode, detail: detail)
+        appendConsoleLine(state: &state, nodeID: sourceNodeID, line: "DHCP failed: \(faultCode) — \(message)")
+    }
+
+    private static func setDNSFailure(
+        state: inout TopologyEditorState,
+        sourceNodeID: UUID,
+        eventCode: TopologyRuntimeEventCode,
+        faultCategory: TopologyRuntimeFaultCategory,
+        faultCode: String,
+        message: String,
+        detail: String
+    ) {
+        let fault = TopologyRuntimeFault(
+            category: faultCategory,
+            code: faultCode,
+            message: message
+        )
+        state.lastRuntimeFault = fault
+        recordRuntimeEvent(state: &state, code: eventCode, detail: detail)
+        appendConsoleLine(state: &state, nodeID: sourceNodeID, line: "DNS failed: \(faultCode) — \(message)")
     }
 
     private static func setRuntimeCommandFailure(
@@ -799,6 +928,98 @@ enum TopologyEditorReducer {
         )
     }
 
+    private static func executeDHCPLeaseCommand(
+        state: inout TopologyEditorState,
+        sourceNodeID: UUID,
+        ipAddress: String,
+        subnetMask: String
+    ) {
+        guard state.graph.containsNode(id: sourceNodeID) else {
+            setDHCPFailure(
+                state: &state,
+                sourceNodeID: sourceNodeID,
+                eventCode: .dhcpLeaseRejectedInvalidConfiguration,
+                faultCategory: .networkConfiguration,
+                faultCode: "dhcpSourceNodeNotFound",
+                message: "Cannot assign DHCP lease for unknown source node",
+                detail: "dhcpSourceNodeNotFound"
+            )
+            return
+        }
+
+        let configuration = TopologyRuntimeDeviceConfiguration(
+            ipAddress: ipAddress,
+            subnetMask: subnetMask
+        )
+
+        state.runtimeDeviceConfigurations[sourceNodeID] = configuration
+        state.runtimeDHCPLeaseByNodeID[sourceNodeID] = configuration
+        state.lastRuntimeFault = nil
+        advancePersistenceRevision(state: &state)
+
+        let detail = "node=\(sourceNodeID.uuidString),ip=\(ipAddress),subnet=\(subnetMask)"
+        recordRuntimeEvent(state: &state, code: .dhcpLeaseAssigned, detail: detail)
+        appendConsoleLine(
+            state: &state,
+            nodeID: sourceNodeID,
+            line: "DHCP lease assigned: \(ipAddress)/\(subnetMask)"
+        )
+    }
+
+    private static func executeDNSRegisterCommand(
+        state: inout TopologyEditorState,
+        sourceNodeID: UUID,
+        hostname: String,
+        targetIPAddress: String
+    ) {
+        let normalizedHost = hostname.lowercased()
+        let record = TopologyRuntimeDNSRecord(
+            hostname: normalizedHost,
+            targetIPAddress: targetIPAddress
+        )
+
+        state.runtimeDNSRecordsByHostname[normalizedHost] = record
+        state.lastRuntimeFault = nil
+        advancePersistenceRevision(state: &state)
+
+        let detail = "host=\(normalizedHost),ip=\(targetIPAddress)"
+        recordRuntimeEvent(state: &state, code: .dnsRecordRegistered, detail: detail)
+        appendConsoleLine(
+            state: &state,
+            nodeID: sourceNodeID,
+            line: "DNS record registered: \(normalizedHost) -> \(targetIPAddress)"
+        )
+    }
+
+    private static func executeDNSResolveCommand(
+        state: inout TopologyEditorState,
+        sourceNodeID: UUID,
+        hostname: String
+    ) {
+        let normalizedHost = hostname.lowercased()
+        guard let record = state.runtimeDNSRecordsByHostname[normalizedHost] else {
+            setDNSFailure(
+                state: &state,
+                sourceNodeID: sourceNodeID,
+                eventCode: .dnsResolveRejectedUnknownHost,
+                faultCategory: .networkService,
+                faultCode: "dnsUnknownHost",
+                message: "No DNS record exists for host '\(normalizedHost)'",
+                detail: "dnsUnknownHost"
+            )
+            return
+        }
+
+        state.lastRuntimeFault = nil
+        let detail = "host=\(record.hostname),ip=\(record.targetIPAddress)"
+        recordRuntimeEvent(state: &state, code: .dnsResolveSucceeded, detail: detail)
+        appendConsoleLine(
+            state: &state,
+            nodeID: sourceNodeID,
+            line: "DNS resolved \(record.hostname) -> \(record.targetIPAddress)"
+        )
+    }
+
     private static func routeDetail(
         command: String,
         sourceNodeID: UUID,
@@ -879,9 +1100,114 @@ enum TopologyEditorReducer {
 
             return .success(.trace(normalizedTargetAddress))
 
+        case "dhcp":
+            guard parts.count == 4, parts[1].lowercased() == "lease" else {
+                return .malformed(
+                    command: "dhcp",
+                    reason: "Command must follow deterministic format: dhcp lease <ipv4> <subnet-mask>"
+                )
+            }
+
+            guard let normalizedAddress = normalizedIPv4Address(parts[2]) else {
+                return .malformed(
+                    command: "dhcp",
+                    reason: "DHCP lease IP must be a valid IPv4 address"
+                )
+            }
+
+            guard let normalizedMask = normalizedSubnetMask(parts[3]) else {
+                return .malformed(
+                    command: "dhcp",
+                    reason: "DHCP lease subnet mask must be a contiguous IPv4 mask"
+                )
+            }
+
+            return .success(.dhcpLease(ipAddress: normalizedAddress, subnetMask: normalizedMask))
+
+        case "dns":
+            guard parts.count >= 3 else {
+                return .malformed(
+                    command: "dns",
+                    reason: "Command must follow deterministic format: dns resolve <hostname> OR dns add <hostname> <target-ipv4>"
+                )
+            }
+
+            let verb = parts[1].lowercased()
+            switch verb {
+            case "resolve":
+                guard parts.count == 3 else {
+                    return .malformed(
+                        command: "dns",
+                        reason: "Command must follow deterministic format: dns resolve <hostname>"
+                    )
+                }
+
+                guard let hostname = normalizedHostname(parts[2]) else {
+                    return .malformed(
+                        command: "dns",
+                        reason: "DNS hostname must contain only letters, numbers, '-' or '.'"
+                    )
+                }
+
+                return .success(.dnsResolve(hostname: hostname))
+
+            case "add":
+                guard parts.count == 4 else {
+                    return .malformed(
+                        command: "dns",
+                        reason: "Command must follow deterministic format: dns add <hostname> <target-ipv4>"
+                    )
+                }
+
+                guard let hostname = normalizedHostname(parts[2]) else {
+                    return .malformed(
+                        command: "dns",
+                        reason: "DNS hostname must contain only letters, numbers, '-' or '.'"
+                    )
+                }
+
+                guard let normalizedAddress = normalizedIPv4Address(parts[3]) else {
+                    return .malformed(
+                        command: "dns",
+                        reason: "DNS target must be a valid IPv4 address"
+                    )
+                }
+
+                return .success(.dnsRegister(hostname: hostname, targetIPAddress: normalizedAddress))
+
+            default:
+                return .malformed(
+                    command: "dns",
+                    reason: "DNS command verb must be 'add' or 'resolve'"
+                )
+            }
+
         default:
             return .unsupported(command: commandToken)
         }
+    }
+
+    private static func normalizedHostname(_ value: String?) -> String? {
+        guard let normalized = normalizedRuntimeValue(value)?.lowercased() else {
+            return nil
+        }
+
+        guard normalized.count <= 63 else {
+            return nil
+        }
+
+        guard normalized.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" || $0 == "." }) else {
+            return nil
+        }
+
+        guard !normalized.hasPrefix("."),
+              !normalized.hasSuffix("."),
+              !normalized.contains("..")
+        else {
+            return nil
+        }
+
+        return normalized
     }
 
     private static func normalizedIPv4Address(_ value: String?) -> String? {

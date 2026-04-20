@@ -47,6 +47,10 @@ final class TopologyProjectPersistenceTests: XCTestCase {
             ipAddress: "192.168.50.2",
             subnetMask: "255.255.255.0"
         )
+        state.runtimeDNSRecordsByHostname["lab.local"] = TopologyRuntimeDNSRecord(
+            hostname: "lab.local",
+            targetIPAddress: "192.168.50.2"
+        )
 
         state.selectedNodeIDs = [pcNode.id, switchNode.id]
         state.activeTool = .connect
@@ -74,6 +78,7 @@ final class TopologyProjectPersistenceTests: XCTestCase {
         XCTAssertEqual(loaded.graph, state.graph)
         XCTAssertEqual(loaded.viewport, state.viewport)
         XCTAssertEqual(loaded.runtimeDeviceConfigurations, state.runtimeDeviceConfigurations)
+        XCTAssertEqual(loaded.runtimeDNSRecordsByHostname, state.runtimeDNSRecordsByHostname)
         XCTAssertEqual(loaded.persistenceRevision, 42)
         XCTAssertEqual(loaded.lastPersistedRevision, 42)
         XCTAssertEqual(loaded.graph.nodes.first(where: { $0.id == switchNode.id })?.ports.count, 8)

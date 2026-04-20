@@ -3,23 +3,27 @@ import Foundation
 
 enum TopologyProjectSnapshotValidationError: Error, Equatable {
     case duplicateRuntimeDeviceConfiguration(nodeID: UUID)
+    case duplicateRuntimeDNSRecord(hostname: String)
 }
 
 struct TopologyProjectSnapshot: Codable, Equatable {
     let graph: TopologyGraphSnapshot
     let viewport: ViewportTransformSnapshot
     let runtimeDeviceConfigurations: [TopologyRuntimeDeviceConfigurationSnapshot]
+    let runtimeDNSRecords: [TopologyRuntimeDNSRecordSnapshot]
     let persistenceRevision: UInt64
 
     init(
         graph: TopologyGraphSnapshot,
         viewport: ViewportTransformSnapshot,
         runtimeDeviceConfigurations: [TopologyRuntimeDeviceConfigurationSnapshot],
+        runtimeDNSRecords: [TopologyRuntimeDNSRecordSnapshot],
         persistenceRevision: UInt64
     ) {
         self.graph = graph
         self.viewport = viewport
         self.runtimeDeviceConfigurations = runtimeDeviceConfigurations
+        self.runtimeDNSRecords = runtimeDNSRecords
         self.persistenceRevision = persistenceRevision
     }
 
@@ -35,6 +39,15 @@ struct TopologyProjectSnapshot: Codable, Equatable {
                 )
             }
             .sorted { $0.nodeID.uuidString < $1.nodeID.uuidString }
+        runtimeDNSRecords = state.runtimeDNSRecordsByHostname
+            .values
+            .map { record in
+                TopologyRuntimeDNSRecordSnapshot(
+                    hostname: record.hostname,
+                    targetIPAddress: record.targetIPAddress
+                )
+            }
+            .sorted { $0.hostname < $1.hostname }
         persistenceRevision = state.persistenceRevision
     }
 
@@ -42,6 +55,7 @@ struct TopologyProjectSnapshot: Codable, Equatable {
         case graph
         case viewport
         case runtimeDeviceConfigurations
+        case runtimeDNSRecords
         case persistenceRevision
     }
 
@@ -59,12 +73,20 @@ struct TopologyProjectSnapshot: Codable, Equatable {
             [TopologyRuntimeDeviceConfigurationSnapshot].self,
             forKey: .runtimeDeviceConfigurations
         )
+        runtimeDNSRecords = try container.decodeIfPresent(
+            [TopologyRuntimeDNSRecordSnapshot].self,
+            forKey: .runtimeDNSRecords
+        ) ?? []
         persistenceRevision = try container.decodeIfPresent(UInt64.self, forKey: .persistenceRevision) ?? 0
     }
 
     func toEditorState() throws -> TopologyEditorState {
         if let duplicateNodeID = duplicateRuntimeConfigurationNodeID() {
             throw TopologyProjectSnapshotValidationError.duplicateRuntimeDeviceConfiguration(nodeID: duplicateNodeID)
+        }
+
+        if let duplicateHostname = duplicateRuntimeDNSHostname() {
+            throw TopologyProjectSnapshotValidationError.duplicateRuntimeDNSRecord(hostname: duplicateHostname)
         }
 
         var state = TopologyEditorState()
@@ -81,6 +103,17 @@ struct TopologyProjectSnapshot: Codable, Equatable {
                 )
             }
         )
+        state.runtimeDNSRecordsByHostname = Dictionary(
+            uniqueKeysWithValues: runtimeDNSRecords.map { snapshot in
+                (
+                    snapshot.hostname,
+                    TopologyRuntimeDNSRecord(
+                        hostname: snapshot.hostname,
+                        targetIPAddress: snapshot.targetIPAddress
+                    )
+                )
+            }
+        )
         state.persistenceRevision = persistenceRevision
         state.lastPersistedRevision = persistenceRevision
 
@@ -93,6 +126,18 @@ struct TopologyProjectSnapshot: Codable, Equatable {
         for entry in runtimeDeviceConfigurations {
             if !seenNodeIDs.insert(entry.nodeID).inserted {
                 return entry.nodeID
+            }
+        }
+
+        return nil
+    }
+
+    private func duplicateRuntimeDNSHostname() -> String? {
+        var seenHostnames: Set<String> = []
+
+        for record in runtimeDNSRecords {
+            if !seenHostnames.insert(record.hostname).inserted {
+                return record.hostname
             }
         }
 
@@ -327,6 +372,33 @@ struct TopologyRuntimeDeviceConfigurationSnapshot: Codable, Equatable {
         nodeID = try container.decode(UUID.self, forKey: .nodeID)
         ipAddress = try container.decode(String.self, forKey: .ipAddress)
         subnetMask = try container.decode(String.self, forKey: .subnetMask)
+    }
+}
+
+struct TopologyRuntimeDNSRecordSnapshot: Codable, Equatable {
+    let hostname: String
+    let targetIPAddress: String
+
+    enum CodingKeys: String, CodingKey, CaseIterable {
+        case hostname
+        case targetIPAddress
+    }
+
+    init(hostname: String, targetIPAddress: String) {
+        self.hostname = hostname
+        self.targetIPAddress = targetIPAddress
+    }
+
+    init(from decoder: Decoder) throws {
+        try assertNoUnknownKeys(
+            decoder: decoder,
+            allowedKeys: CodingKeys.self,
+            context: "TopologyRuntimeDNSRecordSnapshot"
+        )
+
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        hostname = try container.decode(String.self, forKey: .hostname)
+        targetIPAddress = try container.decode(String.self, forKey: .targetIPAddress)
     }
 }
 
