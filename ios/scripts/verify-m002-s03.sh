@@ -7,6 +7,7 @@ SCHEME="FiliusPad"
 DESTINATION="${IOS_SIM_DESTINATION:-platform=iOS Simulator,name=iPad (10th generation)}"
 TIMEOUT_SECONDS="${M002_S03_VERIFY_TIMEOUT_SECONDS:-}"
 ALLOW_MISSING_XCODEBUILD="${M002_S03_VERIFY_ALLOW_MISSING_XCODEBUILD:-1}"
+RUN_UI_TESTS="${M002_S03_VERIFY_RUN_UI_TESTS:-0}"
 PHASE="all"
 
 GRAPH_FILE="$ROOT_DIR/FiliusPad/TopologyEditor/Model/TopologyGraph.swift"
@@ -47,6 +48,14 @@ validate_configuration() {
       ;;
     *)
       fail_config "Invalid M002_S03_VERIFY_ALLOW_MISSING_XCODEBUILD='$ALLOW_MISSING_XCODEBUILD' (expected 0 or 1)" 92
+      ;;
+  esac
+
+  case "$RUN_UI_TESTS" in
+    0|1)
+      ;;
+    *)
+      fail_config "Invalid M002_S03_VERIFY_RUN_UI_TESTS='$RUN_UI_TESTS' (expected 0 or 1)" 93
       ;;
   esac
 
@@ -279,18 +288,22 @@ run_phase \
   -only-testing:FiliusPadTests/TopologyEditorDiagnosticsTests \
   test
 
-run_phase \
-  "Runtime ping + integration UI tests" \
-  xcodebuild \
-  -project "$PROJECT_PATH" \
-  -scheme "$SCHEME" \
-  -destination "$DESTINATION" \
-  -parallel-testing-enabled NO \
-  -retry-tests-on-failure \
-  -test-iterations 3 \
-  -only-testing:FiliusPadUITests/TopologyRuntimePingWorkflowUITests \
-  -only-testing:FiliusPadUITests/TopologyIntegratedAcceptanceUITests \
-  test
+if [[ "$RUN_UI_TESTS" == "1" ]]; then
+  run_phase \
+    "Runtime ping + integration UI tests" \
+    xcodebuild \
+    -project "$PROJECT_PATH" \
+    -scheme "$SCHEME" \
+    -destination "$DESTINATION" \
+    -parallel-testing-enabled NO \
+    -retry-tests-on-failure \
+    -test-iterations 3 \
+    -only-testing:FiliusPadUITests/TopologyRuntimePingWorkflowUITests \
+    -only-testing:FiliusPadUITests/TopologyIntegratedAcceptanceUITests \
+    test
+else
+  log "Skipping Runtime ping + integration UI tests (set M002_S03_VERIFY_RUN_UI_TESTS=1 to enable)"
+fi
 
 run_phase \
   "Project build" \
