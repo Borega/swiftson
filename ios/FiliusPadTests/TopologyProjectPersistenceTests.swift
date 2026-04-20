@@ -322,7 +322,7 @@ final class TopologyProjectPersistenceTests: XCTestCase {
           </void>
           <void method=\"add\">
            <object class=\"filius.gui.netzwerksicht.GUIKnotenItem\">
-            <void property=\"typ\"><string>Switch</string></void>
+            <void property=\"typ\"><string>Switch / WLAN</string></void>
             <void property=\"bounds\">
              <object class=\"java.awt.Rectangle\">
               <void class=\"java.awt.Rectangle\" method=\"getField\"><string>x</string><void method=\"set\"><int>100</int></void></void>
@@ -361,8 +361,158 @@ final class TopologyProjectPersistenceTests: XCTestCase {
         XCTAssertTrue(result.state.graph.links.isEmpty)
     }
 
+    func testImportFiliusConfigurationXMLFallsBackToKnotenClassWhenTypeLabelMissing() throws {
+        let xml = """
+        <?xml version=\"1.0\" encoding=\"UTF-8\"?>
+        <java version=\"11.0.17\" class=\"java.beans.XMLDecoder\">
+         <string>Filius version: 2.1.0 (legacy class fallback)</string>
+         <object class=\"java.util.LinkedList\">
+          <void method=\"add\">
+           <object class=\"filius.gui.netzwerksicht.GUIKnotenItem\">
+            <void property=\"knoten\"><object class=\"filius.hardware.knoten.Rechner\"/></void>
+            <void property=\"bounds\">
+             <object class=\"java.awt.Rectangle\">
+              <void class=\"java.awt.Rectangle\" method=\"getField\"><string>x</string><void method=\"set\"><int>11</int></void></void>
+              <void class=\"java.awt.Rectangle\" method=\"getField\"><string>y</string><void method=\"set\"><int>22</int></void></void>
+             </object>
+            </void>
+           </object>
+          </void>
+          <void method=\"add\">
+           <object class=\"filius.gui.netzwerksicht.GUIKnotenItem\">
+            <void property=\"knoten\"><object class=\"filius.hardware.knoten.Notebook\"/></void>
+            <void property=\"bounds\">
+             <object class=\"java.awt.Rectangle\">
+              <void class=\"java.awt.Rectangle\" method=\"getField\"><string>x</string><void method=\"set\"><int>33</int></void></void>
+              <void class=\"java.awt.Rectangle\" method=\"getField\"><string>y</string><void method=\"set\"><int>44</int></void></void>
+             </object>
+            </void>
+           </object>
+          </void>
+          <void method=\"add\">
+           <object class=\"filius.gui.netzwerksicht.GUIKnotenItem\">
+            <void property=\"knoten\"><object class=\"filius.hardware.knoten.Switch\"/></void>
+            <void property=\"bounds\">
+             <object class=\"java.awt.Rectangle\">
+              <void class=\"java.awt.Rectangle\" method=\"getField\"><string>x</string><void method=\"set\"><int>55</int></void></void>
+              <void class=\"java.awt.Rectangle\" method=\"getField\"><string>y</string><void method=\"set\"><int>66</int></void></void>
+             </object>
+            </void>
+           </object>
+          </void>
+         </object>
+        </java>
+        """
+
+        let result = try TopologyProjectStore.importFiliusConfigurationXML(Data(xml.utf8))
+
+        XCTAssertEqual(result.report.filiusVersion, "Filius version: 2.1.0 (legacy class fallback)")
+        XCTAssertEqual(result.report.importedNodeCount, 3)
+        XCTAssertEqual(result.report.skippedNodeCount, 0)
+        XCTAssertEqual(result.report.warnings, [])
+        XCTAssertEqual(result.state.graph.nodes.map(\.kind), [.pc, .pc, .networkSwitch])
+        XCTAssertEqual(result.state.graph.nodes.map(\.position), [CGPoint(x: 11, y: 22), CGPoint(x: 33, y: 44), CGPoint(x: 55, y: 66)])
+    }
+
+    func testImportFiliusConfigurationXMLSkipsUnsupportedKnotenClassesWithDeterministicWarnings() throws {
+        let xml = """
+        <?xml version=\"1.0\" encoding=\"UTF-8\"?>
+        <java version=\"11.0.17\" class=\"java.beans.XMLDecoder\">
+         <object class=\"java.util.LinkedList\">
+          <void method=\"add\">
+           <object class=\"filius.gui.netzwerksicht.GUIKnotenItem\">
+            <void property=\"knoten\"><object class=\"filius.hardware.knoten.Rechner\"/></void>
+            <void property=\"bounds\">
+             <object class=\"java.awt.Rectangle\">
+              <void class=\"java.awt.Rectangle\" method=\"getField\"><string>x</string><void method=\"set\"><int>5</int></void></void>
+              <void class=\"java.awt.Rectangle\" method=\"getField\"><string>y</string><void method=\"set\"><int>6</int></void></void>
+             </object>
+            </void>
+           </object>
+          </void>
+          <void method=\"add\">
+           <object class=\"filius.gui.netzwerksicht.GUIKnotenItem\">
+            <void property=\"knoten\"><object class=\"filius.hardware.knoten.Vermittlungsrechner\"/></void>
+            <void property=\"bounds\">
+             <object class=\"java.awt.Rectangle\">
+              <void class=\"java.awt.Rectangle\" method=\"getField\"><string>x</string><void method=\"set\"><int>7</int></void></void>
+              <void class=\"java.awt.Rectangle\" method=\"getField\"><string>y</string><void method=\"set\"><int>8</int></void></void>
+             </object>
+            </void>
+           </object>
+          </void>
+          <void method=\"add\">
+           <object class=\"filius.gui.netzwerksicht.GUIKnotenItem\">
+            <void property=\"knoten\"><object class=\"filius.hardware.knoten.Gateway\"/></void>
+            <void property=\"bounds\">
+             <object class=\"java.awt.Rectangle\">
+              <void class=\"java.awt.Rectangle\" method=\"getField\"><string>x</string><void method=\"set\"><int>9</int></void></void>
+              <void class=\"java.awt.Rectangle\" method=\"getField\"><string>y</string><void method=\"set\"><int>10</int></void></void>
+             </object>
+            </void>
+           </object>
+          </void>
+         </object>
+        </java>
+        """
+
+        let result = try TopologyProjectStore.importFiliusConfigurationXML(Data(xml.utf8))
+
+        XCTAssertEqual(result.report.importedNodeCount, 1)
+        XCTAssertEqual(result.report.skippedNodeCount, 2)
+        XCTAssertEqual(
+            result.report.warnings,
+            [
+                "Skipped unsupported FILIUS node class 'filius.hardware.knoten.Vermittlungsrechner' in konfiguration.xml",
+                "Skipped unsupported FILIUS node class 'filius.hardware.knoten.Gateway' in konfiguration.xml"
+            ]
+        )
+        XCTAssertEqual(result.state.graph.nodes.map(\.kind), [.pc])
+        XCTAssertEqual(result.state.graph.nodes.map(\.position), [CGPoint(x: 5, y: 6)])
+    }
+
+    func testImportFiliusConfigurationXMLPrefersTypeLabelOverKnotenClassWhenTypePresent() throws {
+        let xml = """
+        <?xml version=\"1.0\" encoding=\"UTF-8\"?>
+        <java version=\"11.0.17\" class=\"java.beans.XMLDecoder\">
+         <object class=\"java.util.LinkedList\">
+          <void method=\"add\">
+           <object class=\"filius.gui.netzwerksicht.GUIKnotenItem\">
+            <void property=\"typ\"><string>Router</string></void>
+            <void property=\"knoten\"><object class=\"filius.hardware.knoten.Rechner\"/></void>
+            <void property=\"bounds\">
+             <object class=\"java.awt.Rectangle\">
+              <void class=\"java.awt.Rectangle\" method=\"getField\"><string>x</string><void method=\"set\"><int>1</int></void></void>
+              <void class=\"java.awt.Rectangle\" method=\"getField\"><string>y</string><void method=\"set\"><int>2</int></void></void>
+             </object>
+            </void>
+           </object>
+          </void>
+         </object>
+        </java>
+        """
+
+        let result = try TopologyProjectStore.importFiliusConfigurationXML(Data(xml.utf8))
+
+        XCTAssertEqual(result.report.importedNodeCount, 0)
+        XCTAssertEqual(result.report.skippedNodeCount, 1)
+        XCTAssertEqual(result.report.warnings, ["Skipped unsupported FILIUS node type 'Router' in konfiguration.xml"])
+    }
+
     func testImportFiliusConfigurationXMLRejectsMalformedPayload() {
         XCTAssertThrowsError(try TopologyProjectStore.importFiliusConfigurationXML(Data("<java".utf8))) { error in
+            guard let compatibilityError = error as? TopologyFLSCompatibilityError else {
+                XCTFail("Expected TopologyFLSCompatibilityError, got \(type(of: error))")
+                return
+            }
+
+            XCTAssertEqual(compatibilityError.code, .malformedConfigurationXML)
+            XCTAssertTrue(compatibilityError.detail.contains("Failed to parse konfiguration.xml"))
+        }
+    }
+
+    func testImportFiliusConfigurationXMLRejectsNonXMLPayload() {
+        XCTAssertThrowsError(try TopologyProjectStore.importFiliusConfigurationXML(Data("definitely-not-xml".utf8))) { error in
             guard let compatibilityError = error as? TopologyFLSCompatibilityError else {
                 XCTFail("Expected TopologyFLSCompatibilityError, got \(type(of: error))")
                 return

@@ -326,6 +326,7 @@ private struct TopologyFLSConfigurationParseResult {
 private final class TopologyFLSConfigurationParser: NSObject, XMLParserDelegate {
     private struct NodeCandidate {
         var typeName: String?
+        var knotenClassName: String?
         var x: Int?
         var y: Int?
     }
@@ -413,6 +414,12 @@ private final class TopologyFLSConfigurationParser: NSObject, XMLParserDelegate 
             }
             if objectClass == "filius.gui.netzwerksicht.GUIKnotenItem" {
                 currentNode = NodeCandidate()
+            } else if currentNode != nil,
+                      propertyStack.last == "knoten",
+                      let objectClass,
+                      !objectClass.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            {
+                currentNode?.knotenClassName = objectClass
             }
 
         case "void":
@@ -522,17 +529,27 @@ private final class TopologyFLSConfigurationParser: NSObject, XMLParserDelegate 
         }
         currentNode = nil
 
-        guard let typeName = candidate.typeName,
-              !typeName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        else {
+        let normalizedTypeName = candidate.typeName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedClassName = candidate.knotenClassName?.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let nodeKind: TopologyNodeKind
+        if let typeName = normalizedTypeName, !typeName.isEmpty {
+            guard let mapped = mapLegacyNodeType(typeName) else {
+                skippedNodeCount += 1
+                warnings.append("Skipped unsupported FILIUS node type '\(typeName)' in konfiguration.xml")
+                return
+            }
+            nodeKind = mapped
+        } else if let className = normalizedClassName, !className.isEmpty {
+            guard let mapped = mapLegacyNodeClass(className) else {
+                skippedNodeCount += 1
+                warnings.append("Skipped unsupported FILIUS node class '\(className)' in konfiguration.xml")
+                return
+            }
+            nodeKind = mapped
+        } else {
             skippedNodeCount += 1
             warnings.append("Skipped FILIUS node with missing type label in konfiguration.xml")
-            return
-        }
-
-        guard let nodeKind = mapLegacyNodeType(typeName) else {
-            skippedNodeCount += 1
-            warnings.append("Skipped unsupported FILIUS node type '\(typeName)' in konfiguration.xml")
             return
         }
 
@@ -551,15 +568,54 @@ private final class TopologyFLSConfigurationParser: NSObject, XMLParserDelegate 
     }
 
     private func mapLegacyNodeType(_ value: String) -> TopologyNodeKind? {
-        let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        switch normalized {
+        switch normalizeLegacyNodeToken(value) {
         case "computer", "rechner", "laptop", "notebook":
             return .pc
-        case "switch", "switchhub":
+        case "switch", "switchhub", "switch hub", "switch wlan", "wlan switch":
             return .networkSwitch
         default:
             return nil
         }
+    }
+
+    private func mapLegacyNodeClass(_ value: String) -> TopologyNodeKind? {
+        let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedValue.isEmpty else {
+            return nil
+        }
+
+        let classToken: String
+        if trimmedValue.lowercased().hasPrefix("filius.hardware.knoten.") {
+            classToken = String(trimmedValue.split(separator: ".").last ?? "")
+        } else {
+            classToken = trimmedValue
+        }
+
+        switch classToken.lowercased() {
+        case "rechner", "notebook":
+            return .pc
+        case "switch":
+            return .networkSwitch
+        default:
+            return nil
+        }
+    }
+
+    private func normalizeLegacyNodeToken(_ value: String) -> String {
+        let trimmedLowercased = value
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+
+        let spaceNormalized = trimmedLowercased.map { character in
+            if character.isLetter || character.isNumber {
+                return character
+            }
+            return Character(" ")
+        }
+
+        return String(spaceNormalized)
+            .split(whereSeparator: { $0.isWhitespace })
+            .joined(separator: " ")
     }
 }
 
